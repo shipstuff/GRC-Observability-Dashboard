@@ -10,10 +10,16 @@ import { scanTracking } from "./rules/tracking.js";
 import { scanSecurityHeaders } from "./rules/security-headers.js";
 import { scanTls } from "./rules/tls.js";
 import { scanArtifacts } from "./rules/artifacts.js";
+import { scanAccessControls, generateAccessControlReport } from "./rules/access-controls.js";
 import { ScanContext, Manifest } from "./types.js";
 import { loadConfig } from "./config.js";
-import { renderPrivacyPolicy, renderTermsOfService, renderVulnerabilityDisclosure } from "./render.js";
+import { renderPrivacyPolicy, renderTermsOfService, renderVulnerabilityDisclosure, renderIncidentResponsePlan } from "./render.js";
 import { generateSecurityTxt } from "./generators/security-txt.js";
+import { generateHeaderRecommendations, generateHeaderReport } from "./generators/security-headers.js";
+import { assessRisks, generateRiskAssessment } from "./generators/risk-assessment.js";
+import { evaluateFramework, generateFrameworkReport } from "./generators/framework-report.js";
+import { runAIEnhancements } from "./ai/enhance.js";
+import { generateAIReport } from "./ai/report.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -39,7 +45,14 @@ async function getRepoName(repoPath: string): Promise<string> {
   }
 }
 
-export async function scan(repoPath: string, siteUrl: string | null): Promise<Manifest> {
+import type { AuthFinding } from "./rules/access-controls.js";
+
+export interface ScanResult {
+  manifest: Manifest;
+  authFindings: AuthFinding[];
+}
+
+export async function scan(repoPath: string, siteUrl: string | null): Promise<ScanResult> {
   const fullPath = resolve(repoPath);
   const gitInfo = await getGitInfo(fullPath);
   const repoName = await getRepoName(fullPath);
@@ -68,6 +81,7 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Ma
     secretsData,
     trackingData,
     artifacts,
+    { controls: accessControls, findings: authFindings },
   ] = await Promise.all([
     scanForms(ctx).then(r => { console.log(`   ✓ Forms: ${r.length} found`); return r; }),
     scanDependencies(ctx).then(r => { console.log(`   ✓ Dependencies: ${r.services.length} third-party services`); return r; }),
@@ -76,6 +90,7 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Ma
     scanSecrets(ctx).then(r => { console.log(`   ✓ Secrets: ${r.findings.length} potential leaks`); return r; }),
     scanTracking(ctx).then(r => { console.log(`   ✓ Tracking: ${r.length} services`); return r; }),
     scanArtifacts(ctx).then(r => { console.log(`   ✓ Artifacts: checked`); return r; }),
+    scanAccessControls(ctx).then(r => { console.log(`   ✓ Access controls: ${r.findings.length} findings`); return r; }),
   ]);
 
   // Run live checks (optional, sequential to avoid hammering)
@@ -124,14 +139,10 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Ma
     dependencies: deps,
     secretsScan: secretsData,
     artifacts,
-    accessControls: {
-      branchProtection: null, // requires GitHub API — future enhancement
-      requiredReviews: null,
-      signedCommits: null,
-    },
+    accessControls,
   };
 
-  return manifest;
+  return { manifest, authFindings };
 }
 
 // CLI entry point
@@ -141,7 +152,7 @@ async function main() {
   const siteUrl = args.find(a => a.startsWith("--url="))?.split("=")[1] || null;
   const outputDir = args.find(a => a.startsWith("--output="))?.split("=")[1] || null;
 
-  const manifest = await scan(repoPath, siteUrl);
+  const { manifest, authFindings } = await scan(repoPath, siteUrl);
 
   // Write manifest
   const outDir = outputDir || resolve(repoPath, ".grc");
@@ -154,10 +165,11 @@ async function main() {
   // Load config and render policies
   const config = await loadConfig(repoPath);
   const renderCtx = { manifest, config };
-  const [privacyPolicy, termsOfService, vulnDisclosure] = await Promise.all([
+  const [privacyPolicy, termsOfService, vulnDisclosure, irp] = await Promise.all([
     renderPrivacyPolicy(renderCtx),
     renderTermsOfService(renderCtx),
     renderVulnerabilityDisclosure(renderCtx),
+    renderIncidentResponsePlan(renderCtx),
   ]);
 
   const securityTxt = generateSecurityTxt(config);
@@ -165,17 +177,68 @@ async function main() {
   const policyPath = resolve(outDir, "privacy-policy.md");
   const tosPath = resolve(outDir, "terms-of-service.md");
   const vulnPath = resolve(outDir, "vulnerability-disclosure.md");
+  const irpPath = resolve(outDir, "incident-response-plan.md");
   const securityTxtPath = resolve(outDir, "security.txt");
   await Promise.all([
     writeFile(policyPath, privacyPolicy, "utf-8"),
     writeFile(tosPath, termsOfService, "utf-8"),
     writeFile(vulnPath, vulnDisclosure, "utf-8"),
+    writeFile(irpPath, irp, "utf-8"),
     writeFile(securityTxtPath, securityTxt, "utf-8"),
   ]);
 
   console.log(`📄 Privacy policy written to ${policyPath}`);
   console.log(`📄 Terms of service written to ${tosPath}`);
+  // Generate security headers report if live checks were run
+  if (manifest.securityHeaders) {
+    const headerRecs = generateHeaderRecommendations(manifest, config);
+    const headerReport = generateHeaderReport(headerRecs);
+    const headerReportPath = resolve(outDir, "security-headers-report.md");
+    await writeFile(headerReportPath, headerReport, "utf-8");
+    console.log(`📄 Security headers report written to ${headerReportPath}`);
+  }
+
+  // Generate access controls report
+  const acReport = generateAccessControlReport(manifest.accessControls, authFindings);
+  const acReportPath = resolve(outDir, "access-controls-report.md");
+  await writeFile(acReportPath, acReport, "utf-8");
+  console.log(`📄 Access controls report written to ${acReportPath}`);
+
+  // Generate risk assessment
+  const risks = assessRisks(manifest, config, authFindings);
+  const riskReport = generateRiskAssessment(risks, manifest, config);
+  const riskReportPath = resolve(outDir, "risk-assessment.md");
+  await writeFile(riskReportPath, riskReport, "utf-8");
+  console.log(`📄 Risk assessment written to ${riskReportPath} (${risks.length} risks found)`);
+
+  // Generate framework compliance report
+  const frameworkResults = evaluateFramework(manifest);
+  const frameworkReport = generateFrameworkReport(frameworkResults, manifest, config);
+  const frameworkReportPath = resolve(outDir, "nist-csf-report.md");
+  await writeFile(frameworkReportPath, frameworkReport, "utf-8");
+  const applicable = frameworkResults.filter(r => r.status !== "not-applicable");
+  const passed = applicable.filter(r => r.status === "pass").length;
+  const partial = applicable.filter(r => r.status === "partial").length;
+  const overallPct = Math.round(((passed + partial * 0.5) / applicable.length) * 100);
+  console.log(`📄 NIST CSF report written to ${frameworkReportPath} (${overallPct}% compliant)`);
+
+  // Run AI enhancements (optional — graceful degradation)
+  const aiEnhancements = await runAIEnhancements(config, manifest, risks, frameworkResults);
+  if (aiEnhancements) {
+    const aiReport = generateAIReport(aiEnhancements, risks, config);
+    const aiReportPath = resolve(outDir, "ai-analysis.md");
+    await writeFile(aiReportPath, aiReport, "utf-8");
+    console.log(`🤖 AI analysis written to ${aiReportPath}`);
+
+    // Write PR comment to a separate file for GitHub Action to pick up
+    if (aiEnhancements.prSummary) {
+      const prCommentPath = resolve(outDir, "pr-comment.md");
+      await writeFile(prCommentPath, aiEnhancements.prSummary, "utf-8");
+    }
+  }
+
   console.log(`📄 Vulnerability disclosure written to ${vulnPath}`);
+  console.log(`📄 Incident response plan written to ${irpPath}`);
   console.log(`📄 security.txt written to ${securityTxtPath}`);
 
   // Print summary

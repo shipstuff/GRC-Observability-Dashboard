@@ -235,3 +235,40 @@ export async function renderVulnerabilityDisclosure(ctx: RenderContext): Promise
 
   return template(data);
 }
+
+export async function renderIncidentResponsePlan(ctx: RenderContext): Promise<string> {
+  const templatePath = join(getTemplateDir(), "incident-response-plan.hbs");
+  const templateSource = await readFileContent(templatePath);
+  const template = Handlebars.compile(templateSource);
+
+  // Build scope from what we know
+  const scope: string[] = [];
+  const siteUrl = ctx.config.siteUrl.replace(/\/$/, "");
+  if (siteUrl) scope.push(`The website at ${siteUrl} and all subpages`);
+  if (ctx.manifest.dataCollection.some(d => d.location.includes("game"))) {
+    scope.push("Game application and server-side game services");
+  }
+  scope.push("Server infrastructure (Digital Ocean droplet)");
+  scope.push("Source code repositories (GitHub)");
+  scope.push("CI/CD pipeline (GitHub Actions)");
+  if (ctx.manifest.dataCollection.length > 0) {
+    scope.push("All user data collected via the site");
+  }
+  for (const s of ctx.manifest.thirdPartyServices) {
+    scope.push(`${s.name} integration (${s.purpose})`);
+  }
+
+  const data = {
+    config: ctx.config,
+    scanDate: formatScanDate(ctx.manifest.scanDate),
+    branch: ctx.manifest.branch,
+    commit: ctx.manifest.commit,
+    scope,
+    hasLiveChecks: ctx.manifest.securityHeaders !== null,
+    securityHeaders: ctx.manifest.securityHeaders !== null,
+    tls: ctx.manifest.https !== null,
+    thirdPartyServices: ctx.manifest.thirdPartyServices,
+  };
+
+  return template(data);
+}

@@ -2,6 +2,13 @@ import { join } from "node:path";
 import { readFileContent, fileExists } from "./utils.js";
 import { parse } from "yaml";
 
+export type AIProvider = "anthropic" | "openai";
+
+export interface AIConfig {
+  enabled: boolean;
+  provider: AIProvider;
+}
+
 export interface SiteConfig {
   siteName: string;
   siteUrl: string;
@@ -11,6 +18,7 @@ export interface SiteConfig {
   logRetentionDays: number;
   jurisdiction: string[];
   preferredLanguages: string[];
+  ai: AIConfig;
 }
 
 const DEFAULTS: SiteConfig = {
@@ -22,6 +30,7 @@ const DEFAULTS: SiteConfig = {
   logRetentionDays: 90,
   jurisdiction: ["gdpr", "ccpa"],
   preferredLanguages: ["en"],
+  ai: { enabled: false, provider: "anthropic" },
 };
 
 export async function loadConfig(repoPath: string): Promise<SiteConfig> {
@@ -44,5 +53,9 @@ export async function loadConfig(repoPath: string): Promise<SiteConfig> {
     logRetentionDays: raw.log_retention_days ?? DEFAULTS.logRetentionDays,
     jurisdiction: raw.jurisdiction ?? DEFAULTS.jurisdiction,
     preferredLanguages: raw.preferred_languages ?? DEFAULTS.preferredLanguages,
+    ai: {
+      enabled: raw.ai?.enabled ?? DEFAULTS.ai.enabled,
+      provider: raw.ai?.provider ?? DEFAULTS.ai.provider,
+    },
   };
 }

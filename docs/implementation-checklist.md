@@ -2,7 +2,7 @@
 
 The single source of truth for the GRC Observability Dashboard roadmap. Each item is both a **learning exercise** (understand the GRC concept) and a **scanner/dashboard feature** (automate detection and reporting).
 
-## Phase 1: Policies & Documentation
+## Phase 1: Policies & Documentation — DONE
 
 ### Item 1: Privacy Policy (GDPR, CCPA) — DONE
 - [x] Define the template structure (sections, conditional blocks)
@@ -11,7 +11,6 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - [x] Generate a real privacy policy for joeeftekhari.com
 - [x] Add privacy policy status to manifest schema
 - **GRC concept:** Data mapping, lawful basis for processing, data subject rights
-- **AI opportunity:** LLM classifies detected form fields as PII categories
 
 ### Item 2: Terms of Service — DONE
 - [x] Define ToS template structure
@@ -34,61 +33,100 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - [x] Scanner checks for its existence
 - **GRC concept:** Coordinated vulnerability disclosure, safe harbor provisions
 
-## Phase 2: Technical Controls
+## Phase 2: Technical Controls — DONE
 
-### Item 5: Security Headers
-- [ ] Implement: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
-- [x] Scanner checks response headers from live site (already built)
+### Item 5: Security Headers — DONE
+- [x] Scanner checks response headers from live site
+- [x] Auto-generates security headers report with recommendations
+- [x] Generates copy-paste Express middleware and Nginx config
+- [x] CSP auto-generated based on detected resources (e.g., Google Analytics domains)
+- [ ] Implement headers on joeeftekhari.com (copy middleware from report)
 - [ ] Dashboard shows which headers are present/missing
 - **GRC concept:** Defense in depth, OWASP recommendations
-- **AI opportunity:** AI suggests CSP directives based on what scripts/resources the site loads
 
-### Item 6: Access Controls
-- [ ] Document access control for any admin panel or CMS
-- [ ] Scanner checks GitHub branch protection, required reviews (requires GitHub API)
-- [ ] Scanner checks for authentication on admin routes
+### Item 6: Access Controls — DONE
+- [x] Scanner checks GitHub branch protection via `gh` CLI
+- [x] Scanner detects admin/sensitive routes and checks for auth middleware
+- [x] Generates access controls report with `gh` CLI remediation commands
+- [ ] Implement branch protection on joeeftekhari.com repo
 - **GRC concept:** Principle of least privilege, separation of duties
 
-### Item 7: HTTPS Enforcement & Certificate Management
-- [x] Verify HTTPS redirect is in place (already built)
-- [x] Monitor certificate expiry (already built)
-- [x] Scanner checks TLS configuration (already built)
+### Item 7: HTTPS Enforcement & Certificate Management — DONE
+- [x] Verify HTTPS redirect is in place
+- [x] Monitor certificate expiry
+- [x] Scanner checks TLS configuration
 - **GRC concept:** Encryption in transit, certificate lifecycle management
 
-## Phase 3: GRC Artifacts
+## Phase 3: GRC Artifacts — DONE
 
-### Item 8: Risk Assessment
-- [ ] Conduct a lightweight risk assessment of joeeftekhari.com
-- [ ] Scanner auto-generates risk findings from its checks
+### Item 8: Risk Assessment — DONE
+- [x] Auto-generate risk assessment from scan findings
+- [x] Likelihood x impact matrix with visual grid
+- [x] Framework mappings per risk (NIST CSF, SOC 2, ISO 27001, GDPR)
+- [x] Actionable mitigations that cross-reference other reports
+- [x] Executive summary with severity counts
+- [x] Methodology section
 - **GRC concept:** Risk identification, qualitative risk analysis, risk appetite
-- **AI opportunity:** AI categorizes and prioritizes risks based on context
 
-### Item 9: Incident Response Plan
-- [ ] Write an IRP (even for a one-person operation)
-- [x] Scanner checks for IRP document existence (already built)
+### Item 9: Incident Response Plan — DONE
+- [x] Generate IRP template following NIST SP 800-61 lifecycle
+- [x] Scope auto-populated from scan findings (game, third-party services, etc.)
+- [x] Contact list includes third-party service contacts with DPA links
+- [x] Containment commands specific to the detected stack (pm2, ufw, credential rotation)
+- [x] GDPR 72-hour and CCPA breach notification requirements included based on jurisdiction
+- [x] Incident log template and annual testing checklist
+- [x] Scanner checks for IRP document existence
 - **GRC concept:** NIST SP 800-61 incident response lifecycle (Prepare, Detect, Contain, Eradicate, Recover, Lessons Learned)
 
-### Item 10: Risk Register
-- [ ] Create a risk register from scan findings
-- [ ] Document: risk description, likelihood, impact, mitigation, owner, status
-- [ ] Dashboard displays risk register data
+### Item 10: Risk Register — DONE
+- [x] Auto-generated from scan findings (part of risk assessment)
+- [x] Each risk has: ID, description, likelihood, impact, severity, mitigation, status, framework mappings
+- [x] Structured `Risk[]` array ready for dashboard consumption
+- [ ] Dashboard displays risk register with filtering and trend tracking
 - **GRC concept:** Risk treatment options (accept, mitigate, transfer, avoid)
-- **AI opportunity:** AI scores likelihood/impact based on historical CVE data
 
-### Item 11: Framework Mapping
-- [ ] Pick NIST CSF as primary framework
-- [ ] Map each scan check to NIST CSF subcategories
+### Item 11: Framework Mapping — DONE
+- [x] NIST CSF 2.0 as primary framework (18 controls mapped)
+- [x] Each scan check maps to NIST CSF subcategories with pass/partial/fail/N/A evaluation
+- [x] Per-function compliance percentages (Identify, Protect, Detect, Respond, Recover)
+- [x] Cross-mapped to SOC 2 Trust Service Criteria (12 controls)
+- [x] Cross-mapped to ISO 27001 Annex A (22 controls)
+- [x] Evidence strings for every control assessment
+- [x] Gaps section highlighting failures with specific evidence
 - [ ] Dashboard shows framework compliance percentage
-- [ ] Cross-map to SOC 2 and ISO 27001 where applicable
 - **GRC concept:** Control frameworks, control objectives, evidence collection
-- **AI opportunity:** AI suggests which additional controls would have highest compliance impact
 
-## Phase 4: Dashboard Build
+## Phase 4: AI Enhancement Layer — DONE
+
+Optional module — scanner works fully without AI. If an API key is provided, AI enhances output.
+
+### AI Module Foundation — DONE
+- [x] Create `scanner/ai/provider.ts` with provider abstraction (Anthropic, OpenAI)
+- [x] Add `ai` section to `.grc/config.yml` schema (enabled, provider)
+- [x] API key via environment variable / GitHub secrets (never in config file)
+- [x] Graceful degradation — disabled in config: silent skip; enabled without key: warns and skips
+
+### AI-Enhanced Scans — DONE
+- [x] PII classification — LLM classifies every form field with GDPR category, confidence, reasoning
+- [x] Risk narrative enhancement — AI writes plain-English risk descriptions with business context
+- [ ] Context-aware CSP generation — AI fetches page, sees actual resources, generates precise policy
+- [ ] Remediation code generation — AI looks at actual codebase patterns and generates specific fixes
+
+### AI-Enhanced Outputs — DONE
+- [x] PR comment summarization — AI generates GitHub PR comment summarizing compliance posture
+- [x] Gap analysis — AI recommends top 3 highest-impact actions with effort estimates
+- [x] AI report output at `.grc/ai-analysis.md`
+- [x] PR comment output at `.grc/pr-comment.md` for GitHub Action to post
+- [ ] Auto-fix PRs — AI generates remediation PRs for common issues
+- [ ] Auditor-friendly summaries — AI translates technical findings into compliance language
+
+## Phase 5: Dashboard Build
 
 ### Tier 1: Core Scanner + Dashboard
 - [x] Build scanner with universal detection rules
 - [x] Define manifest.yml schema (see `docs/manifest-spec.md`)
 - [x] Build policy/artifact generators from scan data
+- [x] Build report generators (security headers, access controls, risk assessment)
 - [ ] Build reusable GitHub Action wrapping the scanner
 - [ ] Build dashboard API (Express) to receive manifests
 - [ ] Build dashboard UI (HTMX) — checklist view per repo
@@ -101,10 +139,10 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 
 ### Tier 3: Auditor Evidence Export
 - [ ] Generate evidence packages per framework
-- [ ] AI-powered gap analysis
-- [ ] Auto-fix PR generation for remediations
+- [ ] AI-powered gap analysis (depends on Phase 4)
+- [ ] Auto-fix PR generation (depends on Phase 4)
 
-## Phase 5: Blog Content
+## Phase 6: Blog Content
 
 Write these as you complete each phase — document what was learned and built:
 - [ ] "How I Applied NIST CSF to a Personal Project"

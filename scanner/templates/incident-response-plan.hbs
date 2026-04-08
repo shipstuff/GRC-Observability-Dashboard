@@ -1,0 +1,246 @@
+# Incident Response Plan — {{config.siteName}}
+
+**Last updated:** {{scanDate}}
+**Generated from compliance scan:** commit `{{commit}}` on branch `{{branch}}`
+**Owner:** {{config.ownerName}} ({{config.contactEmail}})
+
+---
+
+## 1. Purpose
+
+This Incident Response Plan (IRP) defines the process for detecting, responding to, and recovering from security incidents affecting [{{config.siteUrl}}]({{config.siteUrl}}) and related systems.
+
+This plan follows the NIST SP 800-61 incident response lifecycle: **Prepare → Detect → Contain → Eradicate → Recover → Lessons Learned**.
+
+---
+
+## 2. Scope
+
+This plan covers:
+
+{{#each scope}}
+- {{this}}
+{{/each}}
+
+---
+
+## 3. Incident Classification
+
+| Severity | Definition | Examples | Response Time |
+|----------|-----------|----------|---------------|
+| **P1 — Critical** | Active exploitation, data breach, or total service outage | Unauthorized data access, malware infection, site defacement | Immediate (within 1 hour) |
+| **P2 — High** | Vulnerability being actively exploited or significant service degradation | Exposed credentials, partial outage, suspicious access patterns | Within 4 hours |
+| **P3 — Medium** | Vulnerability discovered but no evidence of exploitation | New CVE in dependencies, misconfiguration found, failed login spikes | Within 24 hours |
+| **P4 — Low** | Minor security concern, no immediate risk | Outdated dependency, minor policy gap, informational finding | Within 1 week |
+
+---
+
+## 4. Roles and Responsibilities
+
+| Role | Person | Responsibilities |
+|------|--------|------------------|
+| **Incident Commander** | {{config.ownerName}} | Overall decision-making, communications, escalation |
+| **Technical Lead** | {{config.ownerName}} | Investigation, containment, remediation |
+| **Communications** | {{config.ownerName}} | User notification, status updates, regulatory reporting |
+
+*For a solo operation, all roles are held by the site owner. If the team grows, assign these roles to specific individuals.*
+
+---
+
+## 5. Preparation (Before an Incident)
+
+### 5.1 Monitoring
+
+{{#if hasLiveChecks}}
+The GRC scanner monitors the following automatically:
+
+| Check | What It Detects |
+|-------|-----------------|
+{{#if securityHeaders}}| Security headers | Missing or misconfigured headers |{{/if}}
+{{#if tls}}| TLS certificate | Expiry, enforcement |{{/if}}
+| Dependency vulnerabilities | Known CVEs in packages |
+| Secrets in code | Leaked credentials or API keys |
+| Access controls | Branch protection, auth on routes |
+{{else}}
+- Set up the GRC scanner GitHub Action for automated monitoring
+- Enable GitHub Dependabot alerts
+{{/if}}
+
+### 5.2 Contact List
+
+| Contact | Purpose | Details |
+|---------|---------|---------|
+| Site owner | Primary responder | {{config.contactEmail}} |
+| Hosting provider | Infrastructure issues | Digital Ocean support |
+{{#each thirdPartyServices}}
+| {{name}} | {{purpose}} incident | {{#if dpaUrl}}[Contact]({{dpaUrl}}){{else}}Check their support page{{/if}} |
+{{/each}}
+| Domain registrar | DNS issues | Check registrar dashboard |
+
+### 5.3 Access Inventory
+
+Maintain a list of all systems and credentials needed during an incident:
+
+- [ ] Server SSH access (Digital Ocean droplet)
+- [ ] GitHub repository access
+- [ ] Domain registrar access
+- [ ] Hosting provider dashboard
+{{#each thirdPartyServices}}
+- [ ] {{name}} dashboard/API access
+{{/each}}
+- [ ] Email account access (for communications)
+
+---
+
+## 6. Detection & Analysis
+
+### 6.1 Detection Sources
+
+| Source | What to Look For |
+|--------|-----------------|
+| GRC scanner alerts | New vulnerabilities, missing headers, exposed secrets |
+| Server logs | Unusual access patterns, error spikes, unauthorized IPs |
+| GitHub notifications | Dependabot alerts, suspicious commits |
+| User reports | Via vulnerability disclosure page or {{config.contactEmail}} |
+| External reports | Security researchers, via security.txt contact |
+
+### 6.2 Initial Assessment Checklist
+
+When a potential incident is detected:
+
+- [ ] **What happened?** — Describe the event
+- [ ] **When was it detected?** — Timestamp
+- [ ] **How was it detected?** — Scanner, logs, user report, etc.
+- [ ] **What is affected?** — Which systems, data, users
+- [ ] **Is it ongoing?** — Is the attack/issue still active
+- [ ] **Classify severity** — P1/P2/P3/P4 per the table above
+- [ ] **Document everything** — Start an incident log
+
+---
+
+## 7. Containment
+
+### 7.1 Short-Term Containment (Stop the Bleeding)
+
+**P1/P2 — Immediate actions:**
+
+```bash
+# Take the site offline if actively compromised
+# Option 1: Stop the application
+ssh user@server "pm2 stop all"  # or systemctl stop your-app
+
+# Option 2: Block all traffic via firewall
+ssh user@server "ufw deny from any to any"
+
+# Option 3: Put up a maintenance page
+# (configure in nginx/reverse proxy)
+```
+
+**If credentials are compromised:**
+```bash
+# Rotate all secrets immediately
+# 1. Generate new API keys for all services
+# 2. Update .env on server
+# 3. Revoke old keys in each service dashboard
+# 4. Force-reset any user sessions
+```
+
+### 7.2 Long-Term Containment
+
+- [ ] Isolate affected systems
+- [ ] Preserve evidence (logs, snapshots)
+- [ ] Apply temporary fixes (patches, firewall rules)
+- [ ] Monitor for continued activity
+
+---
+
+## 8. Eradication
+
+- [ ] Identify root cause
+- [ ] Remove malware/unauthorized access
+- [ ] Patch vulnerabilities
+- [ ] Update dependencies (`npm audit fix`)
+- [ ] Rotate all credentials if compromise is confirmed
+- [ ] Review and harden security headers
+- [ ] Run full GRC scan to verify fixes
+
+---
+
+## 9. Recovery
+
+- [ ] Restore from known-good backup if needed
+- [ ] Redeploy application from clean source
+- [ ] Verify all services are functioning
+- [ ] Run GRC scan to confirm compliance posture
+- [ ] Monitor closely for 48-72 hours post-recovery
+- [ ] Gradually restore normal operations
+
+---
+
+## 10. Post-Incident
+
+### 10.1 Lessons Learned (within 5 business days)
+
+Document:
+- [ ] Timeline of events
+- [ ] What went well
+- [ ] What could be improved
+- [ ] Root cause analysis
+- [ ] Action items with owners and deadlines
+
+### 10.2 Regulatory Notification
+
+{{#if (hasGdpr config.jurisdiction)}}
+**GDPR (if EU user data was affected):**
+- Notify supervisory authority within **72 hours** of becoming aware of a breach (Art. 33)
+- Notify affected users "without undue delay" if high risk to their rights (Art. 34)
+- Document: nature of breach, categories of data, approximate number of users, consequences, measures taken
+{{/if}}
+
+{{#if (hasCcpa config.jurisdiction)}}
+**CCPA (if California resident data was affected):**
+- Notify affected consumers if unencrypted personal information was breached
+- Notification must include: what happened, what data was involved, what you're doing about it
+{{/if}}
+
+### 10.3 Update This Plan
+
+After every incident, update this IRP with:
+- New detection methods discovered
+- Improved containment procedures
+- Updated contact information
+- New systems or services added to scope
+
+---
+
+## 11. Testing This Plan
+
+This plan should be tested at minimum annually:
+
+- [ ] **Tabletop exercise** — Walk through a hypothetical scenario
+- [ ] **Verify contacts** — Ensure all contact info is current
+- [ ] **Verify access** — Confirm you can access all systems listed in 5.3
+- [ ] **Review GRC scan** — Ensure automated monitoring is current
+
+---
+
+## Appendix: Incident Log Template
+
+```
+Incident ID: INC-YYYY-MM-DD-001
+Severity: P1/P2/P3/P4
+Status: Open / Investigating / Contained / Resolved
+
+Timeline:
+- YYYY-MM-DD HH:MM — [Detection] How it was discovered
+- YYYY-MM-DD HH:MM — [Assessment] Initial findings
+- YYYY-MM-DD HH:MM — [Containment] Actions taken
+- YYYY-MM-DD HH:MM — [Eradication] Root cause addressed
+- YYYY-MM-DD HH:MM — [Recovery] Systems restored
+- YYYY-MM-DD HH:MM — [Closed] Post-incident review complete
+
+Root Cause:
+Impact:
+Lessons Learned:
+Action Items:
+```
