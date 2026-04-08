@@ -1,0 +1,48 @@
+import { join } from "node:path";
+import { readFileContent, fileExists } from "./utils.js";
+import { parse } from "yaml";
+
+export interface SiteConfig {
+  siteName: string;
+  siteUrl: string;
+  ownerName: string;
+  contactEmail: string;
+  securityContact: string;
+  logRetentionDays: number;
+  jurisdiction: string[];
+  preferredLanguages: string[];
+}
+
+const DEFAULTS: SiteConfig = {
+  siteName: "Unknown Site",
+  siteUrl: "",
+  ownerName: "Unknown",
+  contactEmail: "",
+  securityContact: "",
+  logRetentionDays: 90,
+  jurisdiction: ["gdpr", "ccpa"],
+  preferredLanguages: ["en"],
+};
+
+export async function loadConfig(repoPath: string): Promise<SiteConfig> {
+  const configPath = join(repoPath, ".grc", "config.yml");
+
+  if (!(await fileExists(configPath))) {
+    console.warn(`   ⚠ No .grc/config.yml found — using defaults. Create one for accurate policies.`);
+    return DEFAULTS;
+  }
+
+  const content = await readFileContent(configPath);
+  const raw = parse(content);
+
+  return {
+    siteName: raw.site_name ?? DEFAULTS.siteName,
+    siteUrl: raw.site_url ?? DEFAULTS.siteUrl,
+    ownerName: raw.owner_name ?? DEFAULTS.ownerName,
+    contactEmail: raw.contact_email ?? DEFAULTS.contactEmail,
+    securityContact: raw.security_contact ?? raw.contact_email ?? DEFAULTS.securityContact,
+    logRetentionDays: raw.log_retention_days ?? DEFAULTS.logRetentionDays,
+    jurisdiction: raw.jurisdiction ?? DEFAULTS.jurisdiction,
+    preferredLanguages: raw.preferred_languages ?? DEFAULTS.preferredLanguages,
+  };
+}

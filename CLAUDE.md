@@ -27,9 +27,9 @@ Policies are NOT hand-written. The scan produces facts, and facts generate polic
 - `shipstuff/joeeftekhari.com` — Personal portfolio/blog. TypeScript, Express, HTMX. Hosted on Digital Ocean droplet. Has a contact form (Resend), game with username input at /game.
 - `shipstuff/GRC-Observability-Dashboard` — This repo. The central dashboard.
 
-## Build Tiers
+## Roadmap
 
-We are building incrementally. See `docs/architecture.md` for tier details. Start with Tier 1 before moving on.
+Single source of truth: `docs/implementation-checklist.md`. All other docs are reference material — do not duplicate the roadmap.
 
 ## User Context
 

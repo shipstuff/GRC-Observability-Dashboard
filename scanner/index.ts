@@ -11,6 +11,9 @@ import { scanSecurityHeaders } from "./rules/security-headers.js";
 import { scanTls } from "./rules/tls.js";
 import { scanArtifacts } from "./rules/artifacts.js";
 import { ScanContext, Manifest } from "./types.js";
+import { loadConfig } from "./config.js";
+import { renderPrivacyPolicy, renderTermsOfService, renderVulnerabilityDisclosure } from "./render.js";
+import { generateSecurityTxt } from "./generators/security-txt.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -147,6 +150,33 @@ async function main() {
   await writeFile(manifestPath, stringify(manifest), "utf-8");
 
   console.log(`\n📋 Manifest written to ${manifestPath}`);
+
+  // Load config and render policies
+  const config = await loadConfig(repoPath);
+  const renderCtx = { manifest, config };
+  const [privacyPolicy, termsOfService, vulnDisclosure] = await Promise.all([
+    renderPrivacyPolicy(renderCtx),
+    renderTermsOfService(renderCtx),
+    renderVulnerabilityDisclosure(renderCtx),
+  ]);
+
+  const securityTxt = generateSecurityTxt(config);
+
+  const policyPath = resolve(outDir, "privacy-policy.md");
+  const tosPath = resolve(outDir, "terms-of-service.md");
+  const vulnPath = resolve(outDir, "vulnerability-disclosure.md");
+  const securityTxtPath = resolve(outDir, "security.txt");
+  await Promise.all([
+    writeFile(policyPath, privacyPolicy, "utf-8"),
+    writeFile(tosPath, termsOfService, "utf-8"),
+    writeFile(vulnPath, vulnDisclosure, "utf-8"),
+    writeFile(securityTxtPath, securityTxt, "utf-8"),
+  ]);
+
+  console.log(`📄 Privacy policy written to ${policyPath}`);
+  console.log(`📄 Terms of service written to ${tosPath}`);
+  console.log(`📄 Vulnerability disclosure written to ${vulnPath}`);
+  console.log(`📄 security.txt written to ${securityTxtPath}`);
 
   // Print summary
   console.log("\n── Summary ──────────────────────────────");

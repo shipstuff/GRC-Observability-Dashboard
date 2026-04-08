@@ -1,0 +1,178 @@
+# Privacy Policy for {{config.siteName}}
+
+**Last updated:** {{scanDate}}
+**Generated from compliance scan:** commit `{{commit}}` on branch `{{branch}}`
+
+---
+
+## Who We Are
+
+{{config.ownerName}} operates [{{config.siteUrl}}]({{config.siteUrl}}). For any privacy-related questions or requests, contact us at **{{config.contactEmail}}**.
+
+---
+
+## What Data We Collect
+
+{{#if dataCollection}}
+We collect the following personal data:
+
+{{#each dataCollection}}
+### {{sectionTitle}}
+- **How it's collected:** {{{sourceDescription}}}
+- **Data fields:** {{joinFields fields}}
+{{#if (eq processor "self-hosted")}}
+- **Processing:** Data is processed on our own servers
+{{else}}
+- **Processing:** Data is processed by {{processor}}
+{{/if}}
+{{#if (eq retention "transient")}}
+- **Retention:** Data is not stored persistently and is discarded after processing
+{{else if (eq retention "persistent")}}
+- **Retention:** Data is stored persistently on our servers
+{{else}}
+- **Retention:** See Data Retention section below
+{{/if}}
+{{#if (hasGdpr ../config.jurisdiction)}}
+- **Legal basis (GDPR):** {{legalBasis}}
+{{/if}}
+
+{{/each}}
+{{else}}
+We do not actively collect personal data through forms or input fields on this site.
+{{/if}}
+
+---
+
+## Server Logs
+
+Our web server automatically collects the following data for every request:
+
+- **IP address**
+- **Browser type and version (User-Agent)**
+- **Pages visited and timestamps**
+- **Referring URL**
+
+This is standard for all web servers and is necessary for security monitoring, abuse prevention, and maintaining service availability.
+
+{{#if (hasGdpr config.jurisdiction)}}
+**Legal basis (GDPR):** Legitimate interest in maintaining security and availability of the service (Art. 6(1)(f)).
+{{/if}}
+
+**Retention:** Server logs are retained for {{config.logRetentionDays}} days.
+
+---
+
+{{#if thirdPartyServices}}
+## Third-Party Services
+
+We use the following third-party services that may process your data:
+
+| Service | Purpose | Data Shared | DPA |
+|---------|---------|-------------|-----|
+{{#each thirdPartyServices}}
+| {{name}} | {{purpose}} | {{joinFields dataShared}} | {{#if dpaUrl}}[View]({{dpaUrl}}){{else}}N/A{{/if}} |
+{{/each}}
+
+{{#if (hasGdpr config.jurisdiction)}}
+Each of these services acts as a **data processor** under GDPR. We have ensured appropriate safeguards are in place for any international data transfers.
+{{/if}}
+
+---
+{{/if}}
+
+{{#if cookies}}
+## Cookies
+
+This site uses cookies:
+
+{{#each cookies}}
+- **{{location}}** — {{source}} cookie used for application functionality
+{{/each}}
+
+{{else}}
+## Cookies
+
+This site does not use cookies for advertising or tracking purposes.{{#if hasFunctionalCookies}} Functional cookies may be used for application features such as session management.{{/if}}
+
+{{/if}}
+
+---
+
+{{#if tracking}}
+## Analytics & Tracking
+
+This site uses the following analytics services:
+
+{{#each tracking}}
+- **{{processor}}** — Collects: {{joinFields fields}}
+{{/each}}
+
+{{#if (hasGdpr config.jurisdiction)}}
+**Legal basis (GDPR):** Legitimate interest in understanding site usage to improve the service (Art. 6(1)(f)). You may opt out using browser privacy settings or extensions.
+{{/if}}
+
+---
+{{/if}}
+
+## Data Retention
+
+{{#if dataCollection}}
+| Data Type | Retention |
+|-----------|-----------|
+{{#each dataCollection}}
+| {{sectionTitle}} | {{retentionDescription}} |
+{{/each}}
+| Server logs | {{@root.config.logRetentionDays}} days |
+{{else}}
+| Data Type | Retention |
+|-----------|-----------|
+| Server logs | {{config.logRetentionDays}} days |
+{{/if}}
+
+---
+
+{{#if (hasGdpr config.jurisdiction)}}
+## Your Rights Under GDPR (EU/EEA Residents)
+
+If you are located in the European Union or European Economic Area, you have the following rights under the General Data Protection Regulation:
+
+- **Right of access** — Request a copy of the personal data we hold about you
+- **Right to rectification** — Request correction of inaccurate personal data
+- **Right to erasure** — Request deletion of your personal data ("right to be forgotten")
+- **Right to restrict processing** — Request that we limit how we use your data
+- **Right to data portability** — Receive your data in a structured, machine-readable format
+- **Right to object** — Object to processing based on legitimate interest
+
+To exercise any of these rights, contact **{{config.contactEmail}}**. We will respond within 30 days as required by GDPR.
+
+You also have the right to lodge a complaint with your local data protection authority.
+
+---
+{{/if}}
+
+{{#if (hasCcpa config.jurisdiction)}}
+## Your Rights Under CCPA (California Residents)
+
+If you are a California resident, you have the following rights under the California Consumer Privacy Act:
+
+- **Right to know** — Request disclosure of the categories and specific pieces of personal information we have collected
+- **Right to delete** — Request deletion of your personal information
+- **Right to opt-out** — Opt out of the sale of your personal information. **We do not sell personal information.**
+- **Right to non-discrimination** — We will not discriminate against you for exercising your privacy rights
+
+To exercise any of these rights, contact **{{config.contactEmail}}**. We will respond within 45 days as required by CCPA.
+
+---
+{{/if}}
+
+## How to Exercise Your Rights
+
+Contact **{{config.contactEmail}}** with your request. Please include enough information for us to verify your identity. We will respond within 30 days.
+
+---
+
+## Changes to This Policy
+
+This privacy policy is auto-generated from our compliance scanning system and is updated on every deployment when data collection practices change. The scan date and commit hash at the top of this document indicate when it was last generated.
+
+Material changes to data collection practices are tracked in our version control history.
