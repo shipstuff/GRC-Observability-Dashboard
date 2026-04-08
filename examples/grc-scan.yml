@@ -1,0 +1,17 @@
+# Example: Add this file to your repo at .github/workflows/grc-scan.yml
+# This calls the reusable GRC scan workflow from the central dashboard repo.
+
+name: GRC Compliance Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  grc:
+    uses: shipstuff/GRC-Observability-Dashboard/.github/workflows/scan.yml@main
+    with:
+      site_url: https://joeeftekhari.com  # optional — for live header/TLS checks
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}  # optional — enables AI enhancements
