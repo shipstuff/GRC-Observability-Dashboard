@@ -1,0 +1,174 @@
+[
+  {
+    "manifest": {
+      "repo": "shipstuff/joeeftekhari.com",
+      "scanDate": "2026-04-08T20:47:19.737Z",
+      "branch": "codex/pretext-flow-demo",
+      "commit": "24967e3",
+      "dataCollection": [
+        {
+          "type": "contact-info",
+          "source": "web-form",
+          "location": "public/partials/contact.html",
+          "processor": "self-hosted",
+          "retention": "unknown",
+          "fields": [
+            "other",
+            "email",
+            "message"
+          ]
+        },
+        {
+          "type": "contact-info",
+          "source": "web-form",
+          "location": "public/retro/partials/contact.html",
+          "processor": "self-hosted",
+          "retention": "unknown",
+          "fields": [
+            "other",
+            "email",
+            "message"
+          ]
+        },
+        {
+          "type": "cookie",
+          "source": "server-cookie",
+          "location": "game/server/index.ts",
+          "processor": "self-hosted",
+          "retention": "unknown",
+          "fields": [
+            "cookie_data"
+          ]
+        },
+        {
+          "type": "cookie",
+          "source": "server-cookie",
+          "location": "game/server/services/CookieService.ts",
+          "processor": "self-hosted",
+          "retention": "unknown",
+          "fields": [
+            "cookie_data"
+          ]
+        },
+        {
+          "type": "api-input",
+          "source": "POST /",
+          "location": "game/server/routes/characters.ts",
+          "processor": "self-hosted",
+          "retention": "unknown",
+          "fields": [
+            "name",
+            "petId",
+            "maxHp",
+            "mapId",
+            "visitedData",
+            "itemId",
+            "quantity",
+            "tileX",
+            "tileY",
+            "seedItemId",
+            "growthDurationMs",
+            "harvestItemId",
+            "npcId",
+            "stateKey",
+            "stateValue"
+          ]
+        },
+        {
+          "type": "api-input",
+          "source": "POST /reload",
+          "location": "game/server/routes/content.ts",
+          "processor": "self-hosted",
+          "retention": "unknown",
+          "fields": [
+            "request_body"
+          ]
+        },
+        {
+          "type": "api-input",
+          "source": "POST /generate-style",
+          "location": "src/server.ts",
+          "processor": "self-hosted",
+          "retention": "unknown",
+          "fields": [
+            "prompt",
+            "ai_service",
+            "from",
+            "subject",
+            "body"
+          ]
+        },
+        {
+          "type": "tracking",
+          "source": "google-analytics",
+          "location": "public/index.html",
+          "processor": "Google Analytics",
+          "retention": "unknown",
+          "fields": [
+            "ip_address",
+            "browsing_behavior",
+            "device_info"
+          ]
+        }
+      ],
+      "thirdPartyServices": [
+        {
+          "name": "Resend",
+          "purpose": "email delivery",
+          "dataShared": [
+            "email",
+            "name",
+            "message_body"
+          ],
+          "dpaUrl": "https://resend.com/legal/dpa"
+        },
+        {
+          "name": "Google Analytics",
+          "purpose": "analytics/tracking",
+          "dataShared": [
+            "ip_address",
+            "browsing_behavior",
+            "device_info"
+          ],
+          "dpaUrl": null
+        }
+      ],
+      "securityHeaders": {
+        "csp": "missing",
+        "hsts": "missing",
+        "xFrameOptions": "missing",
+        "xContentTypeOptions": "missing",
+        "referrerPolicy": "missing",
+        "permissionsPolicy": "missing"
+      },
+      "https": {
+        "enforced": true,
+        "certExpiry": "2026-05-29"
+      },
+      "dependencies": {
+        "criticalVulnerabilities": 1,
+        "highVulnerabilities": 2,
+        "mediumVulnerabilities": 1,
+        "outdatedPackages": 0,
+        "lastAudit": "2026-04-08"
+      },
+      "secretsScan": {
+        "detected": false,
+        "findings": []
+      },
+      "artifacts": {
+        "privacyPolicy": "missing",
+        "termsOfService": "missing",
+        "securityTxt": "missing",
+        "vulnerabilityDisclosure": "missing",
+        "incidentResponsePlan": "present"
+      },
+      "accessControls": {
+        "branchProtection": false,
+        "requiredReviews": null,
+        "signedCommits": null
+      }
+    },
+    "receivedAt": "2026-04-08T21:39:21.190Z"
+  }
+]

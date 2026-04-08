@@ -1,0 +1,14 @@
+[
+  {
+    "repo": "shipstuff/joeeftekhari.com",
+    "branch": "codex/pretext-flow-demo",
+    "commit": "24967e3",
+    "scanDate": "2026-04-08T20:47:19.737Z",
+    "complianceScore": 20,
+    "nistScore": 67,
+    "criticalVulns": 1,
+    "highVulns": 2,
+    "headersPresent": 0,
+    "headersTotal": 6
+  }
+]

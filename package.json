@@ -8,6 +8,7 @@
   },
   "scripts": {
     "scan": "tsx scanner/index.ts",
+    "dashboard": "tsx dashboard/server.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -24,9 +25,13 @@
   "homepage": "https://github.com/shipstuff/GRC-Observability-Dashboard#readme",
   "dependencies": {
     "@types/node": "^25.5.2",
+    "express": "^5.2.1",
     "handlebars": "^4.7.9",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "yaml": "^2.8.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6"
   }
 }

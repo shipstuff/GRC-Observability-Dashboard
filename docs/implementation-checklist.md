@@ -127,7 +127,10 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] Define manifest.yml schema (see `docs/manifest-spec.md`)
 - [x] Build policy/artifact generators from scan data
 - [x] Build report generators (security headers, access controls, risk assessment)
-- [ ] Build reusable GitHub Action wrapping the scanner
+- [x] Build GitHub Action (composite action at `action.yml`) wrapping the scanner
+- [x] Action tested and working on shipstuff/joeeftekhari.com PR #30
+- [x] Artifacts upload (11 reports) and PR commenting working
+- [x] README with setup instructions (4 steps, copy-paste)
 - [ ] Build dashboard API (Express) to receive manifests
 - [ ] Build dashboard UI (HTMX) — checklist view per repo
 - [ ] Deploy dashboard (Digital Ocean droplet or subdomain of joeeftekhari.com)
