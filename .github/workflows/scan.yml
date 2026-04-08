@@ -74,7 +74,7 @@ jobs:
           retention-days: 90
 
       - name: Commit manifest and reports
-        if: inputs.commit_manifest && github.event_name == 'push'
+        if: ${{ inputs.commit_manifest && github.event_name == 'push' }}
         working-directory: target
         run: |
           git config user.name "GRC Bot"
@@ -131,7 +131,7 @@ jobs:
           gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
 
       - name: POST to dashboard
-        if: secrets.GRC_DASHBOARD_KEY != ''
+        if: ${{ secrets.GRC_DASHBOARD_KEY != '' }}
         run: |
           if [ -f target/.grc/manifest.yml ]; then
             curl -s -X POST \
