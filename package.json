@@ -1,0 +1,32 @@
+{
+  "name": "grcprep",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "scan": "tsx scanner/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shipstuff/GRC-Observability-Dashboard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/shipstuff/GRC-Observability-Dashboard/issues"
+  },
+  "homepage": "https://github.com/shipstuff/GRC-Observability-Dashboard#readme",
+  "dependencies": {
+    "@types/node": "^25.5.2",
+    "handlebars": "^4.7.9",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "yaml": "^2.8.3"
+  }
+}
