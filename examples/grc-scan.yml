@@ -1,5 +1,4 @@
-# Example: Add this file to your repo at .github/workflows/grc-scan.yml
-# This calls the reusable GRC scan workflow from the central dashboard repo.
+# Copy this file to your repo at .github/workflows/grc-scan.yml
 
 name: GRC Compliance Scan
 
@@ -8,10 +7,40 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
-  grc:
-    uses: shipstuff/GRC-Observability-Dashboard/.github/workflows/scan.yml@main
-    with:
-      site_url: https://joeeftekhari.com  # optional — for live header/TLS checks
-    secrets:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}  # optional — enables AI enhancements
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run GRC scan
+        uses: shipstuff/GRC-Observability-Dashboard@main
+        with:
+          site_url: https://yoursite.com  # optional — for live header/TLS checks
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: grc-scan-results
+          path: .grc/
+          include-hidden-files: true
+          retention-days: 90
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f .grc/pr-comment.md ]; then
+            BODY=$(cat .grc/pr-comment.md)
+          else
+            BODY="## GRC Compliance Scan
+
+          Scan complete. Download **grc-scan-results** artifact for full reports."
+          fi
+          gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
