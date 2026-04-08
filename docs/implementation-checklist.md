@@ -41,7 +41,6 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - [x] Generates copy-paste Express middleware and Nginx config
 - [x] CSP auto-generated based on detected resources (e.g., Google Analytics domains)
 - [ ] Implement headers on joeeftekhari.com (copy middleware from report)
-- [ ] Dashboard shows which headers are present/missing
 - **GRC concept:** Defense in depth, OWASP recommendations
 
 ### Item 6: Access Controls — DONE
@@ -82,7 +81,6 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - [x] Auto-generated from scan findings (part of risk assessment)
 - [x] Each risk has: ID, description, likelihood, impact, severity, mitigation, status, framework mappings
 - [x] Structured `Risk[]` array ready for dashboard consumption
-- [ ] Dashboard displays risk register with filtering and trend tracking
 - **GRC concept:** Risk treatment options (accept, mitigate, transfer, avoid)
 
 ### Item 11: Framework Mapping — DONE
@@ -93,7 +91,6 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - [x] Cross-mapped to ISO 27001 Annex A (22 controls)
 - [x] Evidence strings for every control assessment
 - [x] Gaps section highlighting failures with specific evidence
-- [ ] Dashboard shows framework compliance percentage
 - **GRC concept:** Control frameworks, control objectives, evidence collection
 
 ## Phase 4: AI Enhancement Layer — DONE
@@ -120,9 +117,9 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [ ] Auto-fix PRs — AI generates remediation PRs for common issues
 - [ ] Auditor-friendly summaries — AI translates technical findings into compliance language
 
-## Phase 5: Dashboard Build
+## Phase 5: Dashboard Build — DONE
 
-### Tier 1: Core Scanner + Dashboard
+### Tier 1: Core Scanner + Dashboard — DONE
 - [x] Build scanner with universal detection rules
 - [x] Define manifest.yml schema (see `docs/manifest-spec.md`)
 - [x] Build policy/artifact generators from scan data
@@ -131,21 +128,44 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] Action tested and working on shipstuff/joeeftekhari.com PR #30
 - [x] Artifacts upload (11 reports) and PR commenting working
 - [x] README with setup instructions (4 steps, copy-paste)
-- [ ] Build dashboard API (Express) to receive manifests
-- [ ] Build dashboard UI (HTMX) — checklist view per repo
-- [ ] Deploy dashboard (Digital Ocean droplet or subdomain of joeeftekhari.com)
+- [x] Build dashboard API (Express) — `POST /api/report`, `GET /api/repos`, `GET /api/history`
+- [x] Build dashboard UI (HTMX) — retro video game theme with CRT scanlines
+- [ ] Deploy dashboard to persistent hosting (Digital Ocean droplet or similar)
 
-### Tier 2: Framework Mapping + Branch Tracking
-- [ ] Add NIST CSF mapping to dashboard
-- [ ] Add branch comparison view
-- [ ] Add trend tracking over time
+### Tier 2: Framework Mapping + Branch Tracking — DONE
+- [x] NIST CSF tab — per-function HP bars, all 18 controls with pass/fail, SOC 2 + ISO 27001 cross-refs, gaps with evidence
+- [x] Branch comparison tab — side-by-side compliance/NIST/vulns/headers with diff vs main
+- [x] Trend tracking tab — ASCII bar charts for compliance score, NIST score, and vulnerability count over time
+- [x] Historical scan storage (last 500 entries per repo)
 
 ### Tier 3: Auditor Evidence Export
-- [ ] Generate evidence packages per framework
-- [ ] AI-powered gap analysis (depends on Phase 4)
+- [ ] Generate evidence packages per framework (PDF/ZIP)
+- [ ] AI-powered gap analysis in dashboard (depends on Phase 4)
 - [ ] Auto-fix PR generation (depends on Phase 4)
 
-## Phase 6: Blog Content
+## Phase 6: Open Source Readiness
+
+Make the project usable by anyone — fork, self-host, and run against their own org.
+
+### Scanner + Action (already usable)
+- [x] Composite GitHub Action works for any public repo
+- [x] README with 4-step setup instructions
+- [x] Example workflow file at `examples/grc-scan.yml`
+
+### Dashboard Self-Hosting
+- [ ] Make org name configurable via env var (remove hardcoded "shipstuff")
+- [ ] Add `DASHBOARD_URL` env var to the action so repos know where to POST
+- [ ] Add deployment guide (pm2 + nginx, or Docker)
+- [ ] Docker Compose file for one-command self-hosting
+- [ ] Add authentication to dashboard API (API key validation on POST)
+
+### Documentation
+- [ ] Contributing guide
+- [ ] How to add new scan rules
+- [ ] How to add new policy templates
+- [ ] How to add new framework mappings
+
+## Phase 7: Blog Content
 
 Write these as you complete each phase — document what was learned and built:
 - [ ] "How I Applied NIST CSF to a Personal Project"

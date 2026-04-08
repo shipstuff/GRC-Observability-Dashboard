@@ -127,12 +127,47 @@ When enabled, AI provides:
 
 The scanner works fully without AI — it only enhances output when available.
 
-## Running Locally
+## Dashboard
+
+The dashboard provides a central view of compliance posture across all repos in your org. Repos POST their manifests to the dashboard API via the GitHub Action.
+
+**Features:**
+- Org-wide stats (compliance %, NIST CSF %, vulnerabilities, secrets)
+- Per-repo detail view with data collection, headers, TLS, deps, access controls, artifacts
+- NIST CSF tab with per-function scores, all 18 controls, SOC 2 + ISO 27001 cross-references
+- Branch comparison tab showing compliance diff across branches
+- Trend tracking with historical compliance, NIST, and vulnerability charts
+
+### Running the Dashboard
 
 ```bash
 git clone https://github.com/shipstuff/GRC-Observability-Dashboard.git
 cd GRC-Observability-Dashboard
 npm install
+npm run dashboard
+```
+
+Dashboard runs at `http://localhost:3001`. Send it a manifest:
+
+```bash
+npm run scan -- /path/to/repo --url=https://yoursite.com
+curl -X POST -H "Content-Type: application/x-yaml" \
+  --data-binary @/path/to/repo/.grc/manifest.yml \
+  http://localhost:3001/api/report
+```
+
+### Dashboard API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/report` | POST | Receive a manifest (YAML or JSON) |
+| `/api/repos` | GET | All repo summaries |
+| `/api/repos/:owner/:name` | GET | Full manifest for a repo |
+| `/api/history/:owner/:name` | GET | Historical scan data |
+
+## Running the Scanner Locally
+
+```bash
 npm run scan -- /path/to/your/repo --url=https://yoursite.com
 ```
 
@@ -150,6 +185,11 @@ GRC-Observability-Dashboard (this repo)
 │   ├── frameworks/         ← NIST CSF mappings + SOC 2/ISO 27001 cross-map
 │   ├── templates/          ← Handlebars templates for policies
 │   └── ai/                 ← Optional AI enhancement layer
+├── dashboard/
+│   ├── server.ts           ← Express API + HTMX UI
+│   ├── store.ts            ← JSON file storage + history tracking
+│   └── views/render.ts     ← Dashboard templates
+├── examples/               ← Example workflow for consuming repos
 └── docs/                   ← Architecture and reference docs
 
 Your repo
@@ -158,6 +198,17 @@ Your repo
     ├── config.yml                  ← Your site config (committed)
     └── *.md                        ← Generated reports (gitignored)
 ```
+
+## Self-Hosting for Your Own Org
+
+This project is designed to be forked and self-hosted:
+
+1. **Fork this repo** to your org
+2. **Deploy the dashboard** (`npm run dashboard`) to any server, VM, or container
+3. **Update the action reference** in your repos' workflows to point to your fork
+4. **Add `DASHBOARD_URL`** as a GitHub org variable so the action knows where to POST
+
+The scanner and action work out of the box for any repo. The dashboard is a single Express server with JSON file storage — no database required.
 
 ## Roadmap
 
