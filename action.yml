@@ -1,0 +1,44 @@
+name: "GRC Compliance Scan"
+description: "Scan a repository for compliance issues and generate governance artifacts"
+
+inputs:
+  site_url:
+    description: "Live site URL for header/TLS checks (optional)"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout GRC scanner
+      uses: actions/checkout@v4
+      with:
+        repository: shipstuff/GRC-Observability-Dashboard
+        path: .grc-scanner
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install scanner dependencies
+      shell: bash
+      working-directory: .grc-scanner
+      run: npm ci
+
+    - name: Run GRC scan
+      shell: bash
+      working-directory: .grc-scanner
+      env:
+        ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_API_KEY }}
+        OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+      run: |
+        ARGS="${{ github.workspace }}"
+        if [ -n "${{ inputs.site_url }}" ]; then
+          ARGS="$ARGS --url=${{ inputs.site_url }}"
+        fi
+        npx tsx scanner/index.ts $ARGS
+
+    - name: Cleanup scanner
+      shell: bash
+      run: rm -rf .grc-scanner
