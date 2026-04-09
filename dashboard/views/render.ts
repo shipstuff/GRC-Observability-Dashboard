@@ -259,8 +259,8 @@ function layout(title: string, content: string): string {
 </head>
 <body>
   <div class="header">
-    <h1>GRC COMPLIANCE</h1>
-    <div class="subtitle">GOVERNANCE RISK COMPLIANCE OBSERVABILITY</div>
+    <h1>GRC OBSERVABILITY</h1>
+    <div class="subtitle">GOVERNANCE RISK COMPLIANCE OBSERVABILITY DASHBOARD</div>
   </div>
   <div class="container">
     ${content}
@@ -298,7 +298,7 @@ function layout(title: string, content: string): string {
 
 export function renderDashboard(summaries: RepoSummary[]): string {
   if (summaries.length === 0) {
-    return layout("GRC COMPLIANCE", `
+    return layout("GRC OBSERVABILITY", `
       <div class="empty">
         <h2>NO TARGETS DETECTED</h2>
         <p>POST a manifest to <code>/api/report</code> to begin scanning.</p>
@@ -403,7 +403,7 @@ export function renderDashboard(summaries: RepoSummary[]): string {
     </div>`);
   }
 
-  return layout("GRC COMPLIANCE", statsHtml + searchHtml + `<div class="section"><div class="section-title">Scanned Repos</div>${reposHtml.join("\n")}</div>`);
+  return layout("GRC OBSERVABILITY", statsHtml + searchHtml + `<div class="section"><div class="section-title">Scanned Repos</div>${reposHtml.join("\n")}</div>`);
 }
 
 export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): string {
