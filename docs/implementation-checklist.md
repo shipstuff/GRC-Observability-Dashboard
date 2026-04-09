@@ -154,7 +154,7 @@ Make the project usable by anyone — fork, self-host, and run against their own
 
 ### Dashboard Self-Hosting
 - [ ] Make org name configurable via env var (remove hardcoded "shipstuff")
-- [ ] Add `DASHBOARD_URL` env var to the action so repos know where to POST
+- [x] Add `dashboard_url` input to the action so repos know where to POST
 - [ ] Add deployment guide (pm2 + nginx, or Docker)
 - [ ] Docker Compose file for one-command self-hosting
 - [ ] Add authentication to dashboard API (API key validation on POST)

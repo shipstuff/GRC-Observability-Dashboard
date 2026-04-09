@@ -27,11 +27,13 @@ const exec = promisify(execFile);
 
 async function getGitInfo(repoPath: string): Promise<{ branch: string; commit: string }> {
   try {
-    const { stdout: branch } = await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: repoPath });
+    const envBranch = process.env.GRC_BRANCH;
+    const { stdout: rawBranch } = await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: repoPath });
+    const branch = rawBranch.trim() === "HEAD" && envBranch ? envBranch : rawBranch.trim();
     const { stdout: commit } = await exec("git", ["rev-parse", "--short", "HEAD"], { cwd: repoPath });
-    return { branch: branch.trim(), commit: commit.trim() };
+    return { branch, commit: commit.trim() };
   } catch {
-    return { branch: "unknown", commit: "unknown" };
+    return { branch: process.env.GRC_BRANCH || "unknown", commit: "unknown" };
   }
 }
 
