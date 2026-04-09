@@ -6,6 +6,10 @@ inputs:
     description: "Live site URL for header/TLS checks (optional)"
     required: false
     default: ""
+  dashboard_url:
+    description: "Dashboard URL to POST manifest to (optional)"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -32,12 +36,26 @@ runs:
       env:
         ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+        GRC_BRANCH: ${{ github.head_ref || github.ref_name }}
       run: |
         ARGS="${{ github.workspace }}"
         if [ -n "${{ inputs.site_url }}" ]; then
           ARGS="$ARGS --url=${{ inputs.site_url }}"
         fi
         npx tsx scanner/index.ts $ARGS
+
+    - name: POST manifest to dashboard
+      if: inputs.dashboard_url != ''
+      shell: bash
+      run: |
+        if [ -f "${{ github.workspace }}/.grc/manifest.yml" ]; then
+          curl -sf -X POST \
+            -H "Content-Type: application/x-yaml" \
+            --data-binary @"${{ github.workspace }}/.grc/manifest.yml" \
+            "${{ inputs.dashboard_url }}/api/report" \
+            && echo "Manifest POSTed to dashboard" \
+            || echo "::warning::Failed to POST manifest to dashboard"
+        fi
 
     - name: Cleanup scanner
       shell: bash

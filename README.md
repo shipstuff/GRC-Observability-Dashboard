@@ -53,6 +53,7 @@ jobs:
         uses: shipstuff/GRC-Observability-Dashboard@main
         with:
           site_url: https://yoursite.com  # optional — for live header/TLS checks
+          dashboard_url: https://your-dashboard.example.com  # optional — POST manifest to dashboard
 
       - name: Upload reports
         uses: actions/upload-artifact@v4
