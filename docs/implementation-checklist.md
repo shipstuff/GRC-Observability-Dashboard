@@ -56,6 +56,14 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - [x] Scanner checks TLS configuration
 - **GRC concept:** Encryption in transit, certificate lifecycle management
 
+### Item 7b: Input Validation & Sanitization
+- [ ] New scanner rule (`scanner/rules/input-validation.ts`) that checks for sanitization
+- [ ] Detect presence of sanitization libraries (xss, dompurify, express-validator, sanitize-html)
+- [ ] Check if templating engine auto-escapes output (Handlebars `{{}}` vs EJS `<%-`)
+- [ ] Flag routes that pass `req.body` directly to DB queries or HTML output without middleware
+- [ ] Add findings to manifest and dashboard
+- **GRC concept:** OWASP A03 (Injection), secure coding practices, technical control verification
+
 ## Phase 3: GRC Artifacts — DONE
 
 ### Item 8: Risk Assessment — DONE
