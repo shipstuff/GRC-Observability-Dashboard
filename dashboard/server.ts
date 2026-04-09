@@ -73,6 +73,7 @@ app.get("/", async (_req, res) => {
 // Repo detail partial
 app.get("/repo/:owner/:name", async (req, res) => {
   const repoName = `${req.params.owner}/${req.params.name}`;
+  const branch = req.query.branch as string | undefined;
   const all = await loadAll();
   const entries = all.filter(m => m.manifest.repo === repoName);
 
@@ -81,9 +82,11 @@ app.get("/repo/:owner/:name", async (req, res) => {
     return;
   }
 
-  const manifest = entries[0].manifest;
-  const summary = summarize(manifest);
-  res.send(renderRepoDetail(manifest, summary));
+  const entry = branch
+    ? entries.find(m => m.manifest.branch === branch) || entries[0]
+    : entries[0];
+  const summary = summarize(entry.manifest);
+  res.send(renderRepoDetail(entry.manifest, summary));
 });
 
 // NIST CSF view partial
