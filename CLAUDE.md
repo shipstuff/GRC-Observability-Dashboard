@@ -25,7 +25,8 @@ Policies are NOT hand-written. The scan produces facts, and facts generate polic
 ## Known Repos
 
 - `shipstuff/joeeftekhari.com` — Personal portfolio/blog. TypeScript, Express, HTMX. Hosted on Digital Ocean droplet. Has a contact form (Resend), game with username input at /game.
-- `shipstuff/GRC-Observability-Dashboard` — This repo. The central dashboard.
+- `shipstuff/AOBuddy` — HOA Dashboard. Monorepo with `packages/api` and `packages/web`. No live site yet.
+- `shipstuff/GRC-Observability-Dashboard` — This repo. The central dashboard. Deployed at grc-dashboard.jdeftekhari.workers.dev.
 
 ## Roadmap
 

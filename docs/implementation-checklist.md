@@ -130,7 +130,7 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] README with setup instructions (4 steps, copy-paste)
 - [x] Build dashboard API (Express) — `POST /api/report`, `GET /api/repos`, `GET /api/history`
 - [x] Build dashboard UI (HTMX) — retro video game theme with CRT scanlines
-- [ ] Deploy dashboard to persistent hosting (Digital Ocean droplet or similar)
+- [x] Deploy dashboard to persistent hosting (Cloudflare Worker at grc-dashboard.jdeftekhari.workers.dev)
 
 ### Tier 2: Framework Mapping + Branch Tracking — DONE
 - [x] NIST CSF tab — per-function HP bars, all 18 controls with pass/fail, SOC 2 + ISO 27001 cross-refs, gaps with evidence
