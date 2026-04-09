@@ -30,6 +30,13 @@ runs:
       working-directory: .grc-scanner
       run: npm ci
 
+    - name: Wait for deploy (merge to main only)
+      if: github.event_name == 'push' && inputs.site_url != ''
+      shell: bash
+      run: |
+        echo "Waiting 90s for deploy to finish before running live checks..."
+        sleep 90
+
     - name: Run GRC scan
       shell: bash
       working-directory: .grc-scanner
@@ -37,9 +44,11 @@ runs:
         ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
         GRC_BRANCH: ${{ github.head_ref || github.ref_name }}
+        GRC_EVENT: ${{ github.event_name }}
       run: |
         ARGS="${{ github.workspace }}"
-        if [ -n "${{ inputs.site_url }}" ]; then
+        # Only include live URL on push (merge) — not on PR since code isn't deployed yet
+        if [ "$GRC_EVENT" = "push" ] && [ -n "${{ inputs.site_url }}" ]; then
           ARGS="$ARGS --url=${{ inputs.site_url }}"
         fi
         npx tsx scanner/index.ts $ARGS

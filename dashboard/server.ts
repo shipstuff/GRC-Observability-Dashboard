@@ -66,7 +66,25 @@ app.get("/api/history/:owner/:name", async (req, res) => {
 // --- UI (HTMX) ---
 
 app.get("/", async (_req, res) => {
-  const summaries = await getRepoSummaries();
+  const all = await loadAll();
+
+  // Group by repo, prefer main/master branch for the repo card
+  const byRepo = new Map<string, typeof all[number]>();
+  for (const entry of all) {
+    const repo = entry.manifest.repo;
+    const existing = byRepo.get(repo);
+    if (!existing) {
+      byRepo.set(repo, entry);
+    } else {
+      const isMain = entry.manifest.branch === "main" || entry.manifest.branch === "master";
+      const existingIsMain = existing.manifest.branch === "main" || existing.manifest.branch === "master";
+      if (isMain && !existingIsMain) {
+        byRepo.set(repo, entry);
+      }
+    }
+  }
+
+  const summaries = [...byRepo.values()].map(m => summarize(m.manifest));
   res.send(renderDashboard(summaries));
 });
 

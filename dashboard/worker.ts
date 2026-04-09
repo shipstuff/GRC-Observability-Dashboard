@@ -113,6 +113,12 @@ function summarize(manifest: Manifest): RepoSummary {
   };
 }
 
+// Pick main/master branch entry, fall back to first entry
+function preferMain(entries: { manifest: Manifest; receivedAt: string }[]) {
+  if (entries.length === 0) return null;
+  return entries.find(e => e.manifest.branch === "main" || e.manifest.branch === "master") || entries[0];
+}
+
 // --- API ---
 
 app.post("/api/report", async (c) => {
@@ -181,14 +187,31 @@ app.get("/api/history/:owner/:name", async (c) => {
 
 app.get("/", async (c) => {
   const all = await getManifests(c.env.GRC_KV);
-  const summaries = all.map(m => summarize(m.manifest));
+
+  // Group by repo, prefer main/master branch for the repo card
+  const byRepo = new Map<string, typeof all[number]>();
+  for (const entry of all) {
+    const repo = entry.manifest.repo;
+    const existing = byRepo.get(repo);
+    if (!existing) {
+      byRepo.set(repo, entry);
+    } else {
+      const isMain = entry.manifest.branch === "main" || entry.manifest.branch === "master";
+      const existingIsMain = existing.manifest.branch === "main" || existing.manifest.branch === "master";
+      if (isMain && !existingIsMain) {
+        byRepo.set(repo, entry);
+      }
+    }
+  }
+
+  const summaries = [...byRepo.values()].map(m => summarize(m.manifest));
   return c.html(renderDashboard(summaries));
 });
 
 app.get("/repo/:owner/:name", async (c) => {
   const repoName = `${c.req.param("owner")}/${c.req.param("name")}`;
   const all = await getManifests(c.env.GRC_KV);
-  const entry = all.find(m => m.manifest.repo === repoName);
+  const entry = preferMain(all.filter(m => m.manifest.repo === repoName));
   if (!entry) return c.html("<p>REPO NOT FOUND</p>", 404);
   const summary = summarize(entry.manifest);
   return c.html(renderRepoDetail(entry.manifest, summary));
@@ -197,7 +220,7 @@ app.get("/repo/:owner/:name", async (c) => {
 app.get("/nist/:owner/:name", async (c) => {
   const repoName = `${c.req.param("owner")}/${c.req.param("name")}`;
   const all = await getManifests(c.env.GRC_KV);
-  const entry = all.find(m => m.manifest.repo === repoName);
+  const entry = preferMain(all.filter(m => m.manifest.repo === repoName));
   if (!entry) return c.html("<p>REPO NOT FOUND</p>", 404);
   const summary = summarize(entry.manifest);
   const functionScores = getNistFunctionScores(summary.nistResults);
