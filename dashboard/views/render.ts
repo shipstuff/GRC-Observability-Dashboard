@@ -76,62 +76,96 @@ function layout(title: string, content: string): string {
     .header {
       background: #0a0a0a;
       border-bottom: 3px double #39ff14;
-      padding: 16px 24px;
+      padding: 12px 24px;
       text-align: center;
     }
     .header h1 {
-      font-size: 16px;
+      font-size: 14px;
       color: #39ff14;
       text-shadow: 0 0 10px #39ff14, 0 0 20px #39ff14, 0 0 40px #006400;
       letter-spacing: 2px;
       animation: flicker 4s infinite alternate;
     }
-    .header .subtitle { font-size: 8px; color: #00ffff; margin-top: 8px; letter-spacing: 4px; }
+    .header .subtitle { font-size: 7px; color: #00ffff; margin-top: 4px; letter-spacing: 4px; }
     @keyframes flicker { 0%,95%,100%{opacity:1} 96%{opacity:0.8} 97%{opacity:1} 98%{opacity:0.9} }
     @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
     @keyframes slideIn { from{transform:translateY(-10px);opacity:0} to{transform:translateY(0);opacity:1} }
-    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+
+    /* Compact stats row */
+    .stats-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .stat-card {
       background: #0a0a0a;
-      border: 2px solid #333;
-      padding: 14px;
-      position: relative;
+      border: 1px solid #333;
+      padding: 8px 12px;
+      flex: 1;
+      min-width: 100px;
     }
-    .stat-card::before { content:""; position:absolute; top:-2px;left:-2px;right:-2px;bottom:-2px; border:1px solid #555; pointer-events:none; }
-    .stat-card .label { font-size: 7px; color: #888; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }
-    .stat-card .value { font-size: 24px; text-shadow: 0 0 8px currentColor; }
+    .stat-card .label { font-size: 6px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+    .stat-card .value { font-size: 16px; text-shadow: 0 0 8px currentColor; }
+
+    /* Search bar */
+    .search-bar {
+      margin-bottom: 16px;
+    }
+    .search-bar input {
+      width: 100%;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      background: #050505;
+      border: 1px solid #333;
+      color: #39ff14;
+      padding: 8px 12px;
+      outline: none;
+    }
+    .search-bar input:focus { border-color: #39ff14; box-shadow: 0 0 8px rgba(57,255,20,0.2); }
+    .search-bar input::placeholder { color: #444; }
+
     .section-title {
-      font-size: 10px; color: #ff00ff; text-transform: uppercase;
-      letter-spacing: 3px; margin-bottom: 16px; text-shadow: 0 0 6px #ff00ff;
+      font-size: 9px; color: #ff00ff; text-transform: uppercase;
+      letter-spacing: 3px; margin-bottom: 12px; text-shadow: 0 0 6px #ff00ff;
     }
     .section-title::before { content: ">> "; }
     .section-title::after { content: " <<"; }
+
+    /* Repo card */
     .repo-card {
-      background: #0a0a0a; border: 2px solid #333; padding: 16px;
-      margin-bottom: 12px; cursor: pointer; transition: all 0.15s; position: relative;
+      background: #0a0a0a; border: 1px solid #333; padding: 12px;
+      margin-bottom: 8px; cursor: pointer; transition: all 0.15s; position: relative;
     }
-    .repo-card::before { content:""; position:absolute; top:-2px;left:-2px;right:-2px;bottom:-2px; border:1px solid #444; pointer-events:none; }
-    .repo-card:hover { border-color: #39ff14; box-shadow: 0 0 15px rgba(57,255,20,0.3), inset 0 0 15px rgba(57,255,20,0.05); }
-    .repo-card .repo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .repo-card .repo-name { font-size: 12px; color: #39ff14; }
+    .repo-card:hover { border-color: #39ff14; box-shadow: 0 0 15px rgba(57,255,20,0.2); }
+    .repo-card.open { border-color: #39ff14; }
+    .repo-card .repo-header { display: flex; justify-content: space-between; align-items: center; }
+    .repo-card .repo-name { font-size: 11px; color: #39ff14; }
     .repo-card:hover .repo-name { text-shadow: 0 0 8px #39ff14; }
-    .repo-card .repo-meta { font-size: 8px; color: #666; margin-top: 4px; }
-    .repo-card .checks-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:6px; margin-top:14px; border-top:1px solid #222; padding-top:12px; }
-    .repo-card .check { font-size: 9px; display: flex; align-items: center; gap: 6px; color: #aaa; }
-    .hp-bar { font-size: 10px; display: flex; align-items: center; gap: 4px; }
-    .hp-label { color: #ff0040; font-size: 8px; }
+    .repo-card .repo-meta { font-size: 7px; color: #666; margin-top: 2px; }
+    .repo-card .checks-grid { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; border-top: 1px solid #1a1a1a; padding-top: 8px; }
+    .repo-card .check { font-size: 8px; display: flex; align-items: center; gap: 4px; color: #aaa; white-space: nowrap; }
+    .hp-bar { font-size: 9px; display: flex; align-items: center; gap: 4px; }
+    .hp-label { color: #ff0040; font-size: 7px; }
     .hp-empty { color: #333; }
     .icon { font-size: 9px; }
     .icon.pass { color: #39ff14; }
     .icon.warn { color: #ffff00; }
     .icon.fail { color: #ff0040; }
 
+    /* Branch selector */
+    .branch-selector { display: flex; gap: 0; margin-bottom: 0; flex-wrap: wrap; }
+    .branch-btn {
+      padding: 6px 12px; font-size: 7px; color: #666; cursor: pointer;
+      border: 1px solid #333; background: #050505;
+      font-family: 'Press Start 2P', monospace;
+      letter-spacing: 1px; transition: all 0.15s;
+    }
+    .branch-btn:hover { color: #00ffff; border-color: #00ffff; }
+    .branch-btn.active { color: #00ffff; border-color: #00ffff; background: #0a0a0a; text-shadow: 0 0 6px #00ffff; }
+
     /* Tabs */
-    .tab-bar { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid #333; }
+    .tab-bar { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid #333; flex-wrap: wrap; }
     .tab {
-      padding: 8px 16px; font-size: 8px; color: #666; cursor: pointer;
-      border: 2px solid #333; border-bottom: none; background: #050505;
+      padding: 6px 12px; font-size: 7px; color: #666; cursor: pointer;
+      border: 1px solid #333; border-bottom: none; background: #050505;
+      font-family: 'Press Start 2P', monospace;
       letter-spacing: 1px; transition: all 0.15s;
     }
     .tab:hover { color: #39ff14; border-color: #39ff14; }
@@ -139,25 +173,25 @@ function layout(title: string, content: string): string {
 
     /* Detail panel */
     .detail {
-      background: #050505; border: 2px solid #39ff14; border-top: none;
-      padding: 20px; margin-bottom: 16px;
-      box-shadow: 0 0 20px rgba(57,255,20,0.15), inset 0 0 30px rgba(57,255,20,0.03);
+      background: #050505; border: 1px solid #39ff14; border-top: none;
+      padding: 16px; margin-bottom: 12px;
+      box-shadow: 0 0 15px rgba(57,255,20,0.1);
       animation: slideIn 0.2s ease-out;
     }
-    .detail h3 { font-size: 10px; margin-bottom: 10px; color: #00ffff; text-shadow: 0 0 6px #00ffff; }
+    .detail h3 { font-size: 9px; margin-bottom: 8px; color: #00ffff; text-shadow: 0 0 6px #00ffff; }
     .detail h3::before { content: "[ "; color: #555; }
     .detail h3::after { content: " ]"; color: #555; }
-    .detail table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    .detail th, .detail td { text-align: left; padding: 6px 10px; font-size: 9px; border-bottom: 1px solid #1a1a1a; }
+    .detail table { width: 100%; border-collapse: collapse; margin-bottom: 16px; table-layout: fixed; }
+    .detail th, .detail td { text-align: left; padding: 5px 8px; font-size: 8px; border-bottom: 1px solid #1a1a1a; word-wrap: break-word; overflow-wrap: break-word; }
     .detail th { color: #ff00ff; font-weight: normal; letter-spacing: 1px; }
     .detail td { color: #ccc; }
-    .detail td code { color: #ffff00; background: none; font-family: 'Press Start 2P', monospace; font-size: 8px; }
+    .detail td code { color: #ffff00; background: none; font-family: 'Press Start 2P', monospace; font-size: 7px; word-break: break-all; }
 
     /* NIST radar */
-    .nist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-    .nist-func { background: #0a0a0a; border: 1px solid #222; padding: 12px; }
-    .nist-func .func-name { font-size: 9px; color: #00ffff; margin-bottom: 8px; text-shadow: 0 0 4px #00ffff; }
-    .nist-func .func-stats { font-size: 8px; color: #666; margin-top: 6px; }
+    .nist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .nist-func { background: #0a0a0a; border: 1px solid #222; padding: 10px; }
+    .nist-func .func-name { font-size: 8px; color: #00ffff; margin-bottom: 6px; text-shadow: 0 0 4px #00ffff; }
+    .nist-func .func-stats { font-size: 7px; color: #666; margin-top: 4px; }
 
     /* Branch comparison */
     .branch-row { display: flex; gap: 16px; margin-bottom: 12px; align-items: center; }
@@ -167,27 +201,97 @@ function layout(title: string, content: string): string {
     .branch-diff.down { color: #ff0040; }
 
     /* Trend chart (ASCII) */
-    .trend-chart { font-size: 9px; line-height: 1.4; white-space: pre; color: #666; margin: 12px 0; }
+    .trend-chart { font-size: 8px; line-height: 1.4; white-space: pre; color: #666; margin: 10px 0; overflow-x: auto; }
     .trend-chart .bar { color: #39ff14; }
     .trend-chart .bar-warn { color: #ffff00; }
     .trend-chart .bar-fail { color: #ff0040; }
 
-    .empty { text-align: center; padding: 80px 20px; }
-    .empty h2 { font-size: 14px; color: #39ff14; margin-bottom: 16px; text-shadow: 0 0 10px #39ff14; }
-    .empty p { color: #666; font-size: 9px; }
+    .empty { text-align: center; padding: 60px 20px; }
+    .empty h2 { font-size: 12px; color: #39ff14; margin-bottom: 12px; text-shadow: 0 0 10px #39ff14; }
+    .empty p { color: #666; font-size: 8px; }
     .cursor-blink::after { content: "_"; animation: blink 1s infinite; }
-    .insert-coin { text-align: center; font-size: 8px; color: #555; margin-top: 40px; letter-spacing: 2px; }
+    .insert-coin { text-align: center; font-size: 7px; color: #555; margin-top: 30px; letter-spacing: 2px; }
+
+    /* Hidden helper */
+    .hidden { display: none !important; }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      body { font-size: 9px; }
+      .container { padding: 10px; }
+      .header { padding: 10px 12px; }
+      .header h1 { font-size: 11px; }
+      .header .subtitle { font-size: 6px; letter-spacing: 2px; }
+      .stats-row { gap: 4px; }
+      .stat-card { padding: 6px 8px; min-width: 70px; }
+      .stat-card .label { font-size: 5px; }
+      .stat-card .value { font-size: 12px; }
+      .repo-card { padding: 10px; }
+      .repo-card .repo-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+      .repo-card .repo-name { font-size: 9px; }
+      .repo-card .checks-grid { gap: 3px 8px; }
+      .repo-card .check { font-size: 7px; }
+      .hp-bar { font-size: 7px; }
+      .hp-label { font-size: 6px; }
+      .tab-bar { flex-wrap: wrap; }
+      .tab { padding: 5px 8px; font-size: 6px; }
+      .branch-btn { padding: 5px 8px; font-size: 6px; }
+      .detail { padding: 10px; }
+      .detail h3 { font-size: 8px; }
+      .detail th, .detail td { padding: 4px 4px; font-size: 7px; }
+      .detail td code { font-size: 6px; }
+      .nist-grid { grid-template-columns: 1fr; gap: 8px; }
+      .nist-func { padding: 8px; }
+      .trend-chart { font-size: 7px; }
+      .search-bar input { font-size: 8px; padding: 6px 10px; }
+      .section-title { font-size: 8px; }
+      .branch-selector { flex-wrap: wrap; }
+    }
+
+    @media (max-width: 480px) {
+      .stat-card { min-width: 55px; }
+      .stat-card .value { font-size: 10px; }
+      .stat-card .label { font-size: 4px; }
+      .hp-bar { font-size: 6px; }
+      .repo-card .repo-name { font-size: 8px; word-break: break-all; }
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>GRC COMPLIANCE</h1>
-    <div class="subtitle">- GOVERNANCE RISK COMPLIANCE OBSERVABILITY SYSTEM -</div>
+    <div class="subtitle">GOVERNANCE RISK COMPLIANCE OBSERVABILITY</div>
   </div>
   <div class="container">
     ${content}
     <div class="insert-coin">SYSTEM ACTIVE <span class="cursor-blink"></span></div>
   </div>
+  <script>
+    function toggleRepo(id) {
+      const el = document.getElementById(id);
+      const card = el.previousElementSibling;
+      if (el.style.display === 'none' || !el.style.display) {
+        el.style.display = 'block';
+        card.classList.add('open');
+      } else {
+        el.style.display = 'none';
+        card.classList.remove('open');
+      }
+    }
+    function filterRepos() {
+      const q = document.getElementById('repo-search').value.toLowerCase();
+      document.querySelectorAll('.repo-entry').forEach(function(entry) {
+        const name = entry.getAttribute('data-repo').toLowerCase();
+        entry.style.display = name.includes(q) ? '' : 'none';
+      });
+    }
+    function switchBranch(repoId, owner, name, branch, btn) {
+      btn.parentElement.querySelectorAll('.branch-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      var panel = document.getElementById('panel-' + repoId);
+      htmx.ajax('GET', '/repo/' + owner + '/' + name + '?branch=' + encodeURIComponent(branch), {target: panel, swap: 'innerHTML'});
+    }
+  </script>
 </body>
 </html>`;
 }
@@ -201,11 +305,26 @@ export function renderDashboard(summaries: RepoSummary[]): string {
       </div>`);
   }
 
-  const totalRepos = summaries.length;
-  const avgScore = Math.round(summaries.reduce((s, r) => s + r.complianceScore, 0) / totalRepos);
-  const avgNist = Math.round(summaries.reduce((s, r) => s + r.nistScore, 0) / totalRepos);
-  const totalVulns = summaries.reduce((s, r) => s + r.criticalVulns + r.highVulns, 0);
-  const secretsCount = summaries.filter(r => r.secretsDetected).length;
+  // Group summaries by repo
+  const repoMap = new Map<string, RepoSummary[]>();
+  for (const s of summaries) {
+    const existing = repoMap.get(s.repo) || [];
+    existing.push(s);
+    repoMap.set(s.repo, existing);
+  }
+
+  // Use latest scan per repo for top-level stats
+  const latestPerRepo: RepoSummary[] = [];
+  for (const [, branches] of repoMap) {
+    branches.sort((a, b) => new Date(b.scanDate).getTime() - new Date(a.scanDate).getTime());
+    latestPerRepo.push(branches[0]);
+  }
+
+  const totalRepos = latestPerRepo.length;
+  const avgScore = Math.round(latestPerRepo.reduce((s, r) => s + r.complianceScore, 0) / totalRepos);
+  const avgNist = Math.round(latestPerRepo.reduce((s, r) => s + r.nistScore, 0) / totalRepos);
+  const totalVulns = latestPerRepo.reduce((s, r) => s + r.criticalVulns + r.highVulns, 0);
+  const secretsCount = latestPerRepo.filter(r => r.secretsDetected).length;
 
   const statsHtml = `
     <div class="stats-row">
@@ -231,44 +350,60 @@ export function renderDashboard(summaries: RepoSummary[]): string {
       </div>
     </div>`;
 
-  const reposHtml = summaries.map(r => {
-    const [owner, name] = r.repo.split("/");
-    const safeId = name.replace(/\./g, "-");
-    return `
-    <div class="repo-card" onclick="document.getElementById('tabs-${safeId}').style.display='block'; this.style.borderColor='#39ff14'">
-      <div class="repo-header">
-        <div>
-          <div class="repo-name">&gt; ${esc(r.repo)}</div>
-          <div class="repo-meta">${r.branch} // ${r.commit} // ${timeAgo(r.scanDate)}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
-          ${hpBar(r.complianceScore, 15, "HP")}
-          ${hpBar(r.nistScore, 15, "NIST")}
-        </div>
-      </div>
-      <div class="checks-grid">
-        <div class="check">${r.secretsDetected ? '<span class="icon fail">[XX]</span>' : '<span class="icon pass">[OK]</span>'} SECRETS</div>
-        <div class="check">${r.headersPresent === r.headersTotal && r.headersTotal > 0 ? '<span class="icon pass">[OK]</span>' : r.headersPresent > 0 ? '<span class="icon warn">[!!]</span>' : '<span class="icon fail">[XX]</span>'} HEADERS ${r.headersPresent}/${r.headersTotal}</div>
-        <div class="check">${r.httpsEnforced === true ? '<span class="icon pass">[OK]</span>' : r.httpsEnforced === false ? '<span class="icon fail">[XX]</span>' : '<span style="color:#555">[ - ]</span>'} HTTPS</div>
-        <div class="check">${r.criticalVulns + r.highVulns === 0 ? '<span class="icon pass">[OK]</span>' : '<span class="icon fail">[XX]</span>'} DEPS ${r.criticalVulns}C/${r.highVulns}H</div>
-        <div class="check">${statusIcon(r.artifacts.privacyPolicy)} PRIVACY</div>
-        <div class="check">${statusIcon(r.artifacts.securityTxt)} SEC.TXT</div>
-        <div class="check">${statusIcon(r.artifacts.incidentResponsePlan)} IRP</div>
-        <div class="check">${statusIcon(r.artifacts.vulnerabilityDisclosure)} DISCLOSURE</div>
-      </div>
-    </div>
-    <div id="tabs-${safeId}" style="display:none;">
-      <div class="tab-bar">
-        <div class="tab active" hx-get="/repo/${owner}/${name}" hx-target="#panel-${safeId}" hx-swap="innerHTML" onclick="document.querySelectorAll('#tabs-${safeId} .tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">OVERVIEW</div>
-        <div class="tab" hx-get="/nist/${owner}/${name}" hx-target="#panel-${safeId}" hx-swap="innerHTML" onclick="document.querySelectorAll('#tabs-${safeId} .tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">NIST CSF</div>
-        <div class="tab" hx-get="/branches/${owner}/${name}" hx-target="#panel-${safeId}" hx-swap="innerHTML" onclick="document.querySelectorAll('#tabs-${safeId} .tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">BRANCHES</div>
-        <div class="tab" hx-get="/trends/${owner}/${name}" hx-target="#panel-${safeId}" hx-swap="innerHTML" onclick="document.querySelectorAll('#tabs-${safeId} .tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">TRENDS</div>
-      </div>
-      <div id="panel-${safeId}" hx-get="/repo/${owner}/${name}" hx-trigger="load"></div>
+  const searchHtml = `
+    <div class="search-bar">
+      <input type="text" id="repo-search" placeholder="> SEARCH REPOS..." oninput="filterRepos()">
     </div>`;
-  }).join("\n");
 
-  return layout("GRC COMPLIANCE", statsHtml + `<div class="section"><div class="section-title">Scanned Repos</div>${reposHtml}</div>`);
+  const reposHtml: string[] = [];
+  for (const [repo, branches] of repoMap) {
+    const [owner, name] = repo.split("/");
+    const safeId = (owner + "-" + name).replace(/\./g, "-");
+    const latest = branches[0]; // already sorted by date desc
+
+    // Branch selector buttons
+    const branchBtns = branches.map((b, i) =>
+      `<div class="branch-btn${i === 0 ? " active" : ""}" onclick="switchBranch('${safeId}','${owner}','${name}','${esc(b.branch)}',this)">${esc(b.branch)}</div>`
+    ).join("");
+
+    reposHtml.push(`
+    <div class="repo-entry" data-repo="${esc(repo)}">
+      <div class="repo-card" onclick="toggleRepo('detail-${safeId}')">
+        <div class="repo-header">
+          <div>
+            <div class="repo-name">&gt; ${esc(repo)}</div>
+            <div class="repo-meta">${branches.length} branch${branches.length > 1 ? "es" : ""} // latest: ${timeAgo(latest.scanDate)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
+            ${hpBar(latest.complianceScore, 12, "HP")}
+            ${hpBar(latest.nistScore, 12, "NIST")}
+          </div>
+        </div>
+        <div class="checks-grid">
+          <div class="check">${latest.secretsDetected ? '<span class="icon fail">[XX]</span>' : '<span class="icon pass">[OK]</span>'} SECRETS</div>
+          <div class="check">${latest.headersPresent === latest.headersTotal && latest.headersTotal > 0 ? '<span class="icon pass">[OK]</span>' : latest.headersPresent > 0 ? '<span class="icon warn">[!!]</span>' : '<span class="icon fail">[XX]</span>'} HDR ${latest.headersPresent}/${latest.headersTotal}</div>
+          <div class="check">${latest.httpsEnforced === true ? '<span class="icon pass">[OK]</span>' : latest.httpsEnforced === false ? '<span class="icon fail">[XX]</span>' : '<span style="color:#555">[-]</span>'} HTTPS</div>
+          <div class="check">${latest.criticalVulns + latest.highVulns === 0 ? '<span class="icon pass">[OK]</span>' : '<span class="icon fail">[XX]</span>'} DEPS ${latest.criticalVulns}C/${latest.highVulns}H</div>
+          <div class="check">${statusIcon(latest.artifacts.privacyPolicy)} PRIV</div>
+          <div class="check">${statusIcon(latest.artifacts.securityTxt)} SEC</div>
+          <div class="check">${statusIcon(latest.artifacts.incidentResponsePlan)} IRP</div>
+          <div class="check">${statusIcon(latest.artifacts.vulnerabilityDisclosure)} DISC</div>
+        </div>
+      </div>
+      <div id="detail-${safeId}" style="display:none;">
+        ${branches.length > 1 ? `<div class="branch-selector">${branchBtns}</div>` : ""}
+        <div class="tab-bar">
+          <div class="tab active" hx-get="/repo/${owner}/${name}" hx-target="#panel-${safeId}" hx-swap="innerHTML" onclick="document.querySelectorAll('#detail-${safeId} .tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">OVERVIEW</div>
+          <div class="tab" hx-get="/nist/${owner}/${name}" hx-target="#panel-${safeId}" hx-swap="innerHTML" onclick="document.querySelectorAll('#detail-${safeId} .tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">NIST CSF</div>
+          <div class="tab" hx-get="/branches/${owner}/${name}" hx-target="#panel-${safeId}" hx-swap="innerHTML" onclick="document.querySelectorAll('#detail-${safeId} .tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">BRANCHES</div>
+          <div class="tab" hx-get="/trends/${owner}/${name}" hx-target="#panel-${safeId}" hx-swap="innerHTML" onclick="document.querySelectorAll('#detail-${safeId} .tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">TRENDS</div>
+        </div>
+        <div id="panel-${safeId}" hx-get="/repo/${owner}/${name}" hx-trigger="load"></div>
+      </div>
+    </div>`);
+  }
+
+  return layout("GRC COMPLIANCE", statsHtml + searchHtml + `<div class="section"><div class="section-title">Scanned Repos</div>${reposHtml.join("\n")}</div>`);
 }
 
 export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): string {
@@ -279,9 +414,13 @@ export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): stri
 
   let html = `<div class="detail">`;
 
+  // Repo + branch info
+  html += `<div style="font-size:7px;color:#666;margin-bottom:12px;">${esc(manifest.branch)} // ${esc(manifest.commit)} // ${timeAgo(manifest.scanDate)}</div>`;
+
   html += `<h3>DATA COLLECTION // ${dc.length} POINTS</h3>`;
   if (dc.length > 0) {
-    html += `<table><tr><th>TYPE</th><th>SOURCE</th><th>LOCATION</th><th>FIELDS</th></tr>`;
+    html += `<table><colgroup><col style="width:15%"><col style="width:15%"><col style="width:40%"><col style="width:30%"></colgroup>`;
+    html += `<tr><th>TYPE</th><th>SOURCE</th><th>LOCATION</th><th>FIELDS</th></tr>`;
     for (const d of dc) {
       html += `<tr><td>${esc(d.type)}</td><td>${esc(d.source)}</td><td><code>${esc(d.location)}</code></td><td>${esc(d.fields.join(", "))}</td></tr>`;
     }
@@ -290,7 +429,8 @@ export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): stri
 
   if (tp.length > 0) {
     html += `<h3>THIRD-PARTY SERVICES</h3>`;
-    html += `<table><tr><th>SERVICE</th><th>PURPOSE</th><th>DATA SHARED</th><th>DPA</th></tr>`;
+    html += `<table><colgroup><col style="width:20%"><col style="width:25%"><col style="width:35%"><col style="width:20%"></colgroup>`;
+    html += `<tr><th>SERVICE</th><th>PURPOSE</th><th>DATA SHARED</th><th>DPA</th></tr>`;
     for (const s of tp) {
       html += `<tr><td>${esc(s.name)}</td><td>${esc(s.purpose)}</td><td>${esc(s.dataShared.join(", "))}</td><td>${s.dpaUrl ? `<a href="${esc(s.dpaUrl)}" target="_blank">[LINK]</a>` : '<span style="color:#555">NONE</span>'}</td></tr>`;
     }
@@ -299,7 +439,8 @@ export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): stri
 
   if (h) {
     html += `<h3>SECURITY HEADERS // ${summary.headersPresent}/${summary.headersTotal}</h3>`;
-    html += `<table><tr><th>HEADER</th><th>STATUS</th></tr>`;
+    html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup>`;
+    html += `<tr><th>HEADER</th><th>STATUS</th></tr>`;
     const names: Record<string, string> = { csp:"Content-Security-Policy", hsts:"Strict-Transport-Security", xFrameOptions:"X-Frame-Options", xContentTypeOptions:"X-Content-Type-Options", referrerPolicy:"Referrer-Policy", permissionsPolicy:"Permissions-Policy" };
     for (const [key, label] of Object.entries(names)) {
       const val = (h as any)[key] as string;
@@ -310,7 +451,8 @@ export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): stri
 
   if (manifest.https) {
     html += `<h3>HTTPS // TLS</h3>`;
-    html += `<table><tr><th>CHECK</th><th>STATUS</th></tr>`;
+    html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup>`;
+    html += `<tr><th>CHECK</th><th>STATUS</th></tr>`;
     html += `<tr><td>HTTPS Enforced</td><td>${manifest.https.enforced ? '<span class="icon pass">[OK]</span> YES' : '<span class="icon fail">[XX]</span> NO'}</td></tr>`;
     html += `<tr><td>Cert Expiry</td><td>${manifest.https.certExpiry ?? '<span style="color:#555">UNKNOWN</span>'}</td></tr>`;
     html += `</table>`;
@@ -319,7 +461,8 @@ export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): stri
   if (manifest.dependencies) {
     const d = manifest.dependencies;
     html += `<h3>DEPENDENCIES</h3>`;
-    html += `<table><tr><th>SEVERITY</th><th>COUNT</th></tr>`;
+    html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup>`;
+    html += `<tr><th>SEVERITY</th><th>COUNT</th></tr>`;
     html += `<tr><td>CRITICAL</td><td style="color:${d.criticalVulnerabilities > 0 ? "#ff0040" : "#39ff14"};text-shadow:0 0 6px currentColor">${d.criticalVulnerabilities}</td></tr>`;
     html += `<tr><td>HIGH</td><td style="color:${d.highVulnerabilities > 0 ? "#ff0040" : "#39ff14"};text-shadow:0 0 6px currentColor">${d.highVulnerabilities}</td></tr>`;
     html += `<tr><td>MEDIUM</td><td style="color:#ffff00">${d.mediumVulnerabilities}</td></tr>`;
@@ -328,14 +471,16 @@ export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): stri
   }
 
   html += `<h3>ACCESS CONTROLS</h3>`;
-  html += `<table><tr><th>CONTROL</th><th>STATUS</th></tr>`;
+  html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup>`;
+  html += `<tr><th>CONTROL</th><th>STATUS</th></tr>`;
   html += `<tr><td>Branch Protection</td><td>${ac.branchProtection === true ? '<span class="icon pass">[OK]</span> ENABLED' : ac.branchProtection === false ? '<span class="icon fail">[XX]</span> DISABLED' : '<span style="color:#555">UNKNOWN</span>'}</td></tr>`;
   html += `<tr><td>Required Reviews</td><td>${ac.requiredReviews ?? '<span style="color:#555">\u2014</span>'}</td></tr>`;
   html += `<tr><td>Signed Commits</td><td>${ac.signedCommits === true ? '<span class="icon pass">[OK]</span>' : ac.signedCommits === false ? '<span class="icon fail">[XX]</span>' : '<span style="color:#555">\u2014</span>'}</td></tr>`;
   html += `</table>`;
 
   html += `<h3>GOVERNANCE ARTIFACTS</h3>`;
-  html += `<table><tr><th>ARTIFACT</th><th>STATUS</th></tr>`;
+  html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup>`;
+  html += `<tr><th>ARTIFACT</th><th>STATUS</th></tr>`;
   const labels: Record<string, string> = { privacyPolicy:"Privacy Policy", termsOfService:"Terms of Service", securityTxt:"security.txt", vulnerabilityDisclosure:"Vuln Disclosure", incidentResponsePlan:"Incident Response Plan" };
   for (const [key, label] of Object.entries(labels)) {
     const val = (manifest.artifacts as any)[key] as string;
@@ -348,43 +493,42 @@ export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): stri
 export function renderNistView(summary: RepoSummary, functionScores: FunctionScore[]): string {
   let html = `<div class="detail">`;
   html += `<h3>NIST CSF 2.0 // ${summary.nistScore}% COMPLIANT</h3>`;
-  html += `<div style="margin-bottom:20px">${hpBar(summary.nistScore, 30, "NIST")}</div>`;
+  html += `<div style="margin-bottom:16px">${hpBar(summary.nistScore, 25, "NIST")}</div>`;
 
-  // Function scores
   html += `<div class="nist-grid">`;
   for (const fn of functionScores) {
     html += `<div class="nist-func">
       <div class="func-name">${fn.name.toUpperCase()}</div>
-      ${hpBar(fn.percentage, 20, fn.name.substring(0, 3).toUpperCase())}
+      ${hpBar(fn.percentage, 16, fn.name.substring(0, 3).toUpperCase())}
       <div class="func-stats">${fn.passed}P ${fn.partial}A ${fn.failed}F</div>
     </div>`;
   }
   html += `</div>`;
 
-  // Detailed controls
   html += `<h3>CONTROL DETAILS</h3>`;
-  html += `<table><tr><th>ID</th><th>CONTROL</th><th>STATUS</th><th>SOC 2</th><th>ISO 27001</th></tr>`;
+  html += `<table><colgroup><col style="width:10%"><col style="width:30%"><col style="width:15%"><col style="width:22%"><col style="width:23%"></colgroup>`;
+  html += `<tr><th>ID</th><th>CONTROL</th><th>STATUS</th><th>SOC 2</th><th>ISO 27001</th></tr>`;
   for (const r of summary.nistResults) {
     html += `<tr>
       <td style="color:#00ffff">${r.control.id}</td>
       <td>${esc(r.control.description)}</td>
       <td>${statusIcon(r.status)} ${r.status.toUpperCase()}</td>
-      <td style="font-size:7px;color:#888">${r.soc2.join(", ") || "\u2014"}</td>
-      <td style="font-size:7px;color:#888">${r.iso27001.join(", ") || "\u2014"}</td>
+      <td style="font-size:6px;color:#888">${r.soc2.join(", ") || "\u2014"}</td>
+      <td style="font-size:6px;color:#888">${r.iso27001.join(", ") || "\u2014"}</td>
     </tr>`;
   }
   html += `</table>`;
 
-  // Gaps
   const gaps = summary.nistResults.filter(r => r.status === "fail" || r.status === "partial");
   if (gaps.length > 0) {
     html += `<h3>GAPS // ${gaps.length} CONTROLS</h3>`;
-    html += `<table><tr><th>ID</th><th>STATUS</th><th>EVIDENCE</th></tr>`;
+    html += `<table><colgroup><col style="width:12%"><col style="width:15%"><col style="width:73%"></colgroup>`;
+    html += `<tr><th>ID</th><th>STATUS</th><th>EVIDENCE</th></tr>`;
     for (const g of gaps) {
       html += `<tr>
         <td style="color:#ff0040">${g.control.id}</td>
         <td>${statusIcon(g.status)} ${g.status.toUpperCase()}</td>
-        <td style="font-size:8px">${esc(g.evidence)}</td>
+        <td style="font-size:7px">${esc(g.evidence)}</td>
       </tr>`;
     }
     html += `</table>`;
@@ -399,24 +543,24 @@ export function renderBranchComparison(summaries: RepoSummary[]): string {
   html += `<h3>BRANCH COMPARISON // ${summaries.length} BRANCHES</h3>`;
 
   if (summaries.length <= 1) {
-    html += `<p style="color:#666;font-size:9px;padding:20px 0;">Only one branch scanned. Push scans from feature branches to see comparisons.</p>`;
+    html += `<p style="color:#666;font-size:8px;padding:16px 0;">Only one branch scanned. Push scans from feature branches to see comparisons.</p>`;
     if (summaries.length === 1) {
       const s = summaries[0];
       html += `<div class="branch-row">
         <div class="branch-name">${esc(s.branch)}</div>
-        ${hpBar(s.complianceScore, 15, "HP")}
-        ${hpBar(s.nistScore, 15, "NIST")}
+        ${hpBar(s.complianceScore, 12, "HP")}
+        ${hpBar(s.nistScore, 12, "NIST")}
       </div>`;
     }
     html += `</div>`;
     return html;
   }
 
-  // Sort by compliance score descending
   const sorted = [...summaries].sort((a, b) => b.complianceScore - a.complianceScore);
   const mainBranch = sorted.find(s => s.branch === "main" || s.branch === "master") || sorted[0];
 
-  html += `<table><tr><th>BRANCH</th><th>COMPLIANCE</th><th>NIST</th><th>VULNS</th><th>HEADERS</th><th>VS MAIN</th></tr>`;
+  html += `<table><colgroup><col style="width:25%"><col style="width:20%"><col style="width:20%"><col style="width:12%"><col style="width:12%"><col style="width:11%"></colgroup>`;
+  html += `<tr><th>BRANCH</th><th>COMPLIANCE</th><th>NIST</th><th>VULNS</th><th>HDRS</th><th>VS MAIN</th></tr>`;
   for (const s of sorted) {
     const diff = s.complianceScore - mainBranch.complianceScore;
     const diffStr = s.branch === mainBranch.branch ? '<span style="color:#555">BASE</span>'
@@ -426,8 +570,8 @@ export function renderBranchComparison(summaries: RepoSummary[]): string {
 
     html += `<tr>
       <td style="color:#00ffff">${esc(s.branch)}</td>
-      <td>${hpBar(s.complianceScore, 10, "")}</td>
-      <td>${hpBar(s.nistScore, 10, "")}</td>
+      <td>${hpBar(s.complianceScore, 8, "")}</td>
+      <td>${hpBar(s.nistScore, 8, "")}</td>
       <td style="color:${s.criticalVulns + s.highVulns > 0 ? "#ff0040" : "#39ff14"}">${s.criticalVulns}C/${s.highVulns}H</td>
       <td>${s.headersPresent}/${s.headersTotal}</td>
       <td>${diffStr}</td>
@@ -442,60 +586,46 @@ export function renderTrendChart(history: HistoryEntry[], repo: string): string 
   html += `<h3>COMPLIANCE TREND // ${esc(repo)}</h3>`;
 
   if (history.length === 0) {
-    html += `<p style="color:#666;font-size:9px;padding:20px 0;">No history yet. Scans will appear here over time.</p></div>`;
+    html += `<p style="color:#666;font-size:8px;padding:16px 0;">No history yet. Scans will appear here over time.</p></div>`;
     return html;
   }
 
-  // Show last 20 entries
   const recent = history.slice(-20);
+  const maxScore = 100;
+  const barWidth = 25;
 
-  // ASCII bar chart
   html += `<div class="trend-chart">`;
   html += `<span style="color:#ff00ff">SCORE</span>\n`;
-
-  const maxScore = 100;
-  const barWidth = 30;
-
   for (const entry of recent) {
     const date = new Date(entry.scanDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const filled = Math.round((entry.complianceScore / maxScore) * barWidth);
     const bar = "\u2588".repeat(filled) + "\u2591".repeat(barWidth - filled);
     const colorClass = entry.complianceScore >= 80 ? "bar" : entry.complianceScore >= 50 ? "bar-warn" : "bar-fail";
-
     html += `${date.padStart(8)} <span class="${colorClass}">${bar}</span> ${entry.complianceScore}%  ${entry.commit}\n`;
   }
-
   html += `</div>`;
 
-  // NIST trend
   html += `<div class="trend-chart">`;
   html += `<span style="color:#ff00ff">NIST</span>\n`;
-
   for (const entry of recent) {
     const date = new Date(entry.scanDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const filled = Math.round((entry.nistScore / maxScore) * barWidth);
     const bar = "\u2588".repeat(filled) + "\u2591".repeat(barWidth - filled);
     const colorClass = entry.nistScore >= 80 ? "bar" : entry.nistScore >= 50 ? "bar-warn" : "bar-fail";
-
     html += `${date.padStart(8)} <span class="${colorClass}">${bar}</span> ${entry.nistScore}%  ${entry.commit}\n`;
   }
-
   html += `</div>`;
 
-  // Vulnerability trend
   html += `<h3>VULNERABILITY TREND</h3>`;
   html += `<div class="trend-chart">`;
   html += `<span style="color:#ff00ff">VULNS</span>\n`;
-
   for (const entry of recent) {
     const date = new Date(entry.scanDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const total = entry.criticalVulns + entry.highVulns;
     const bar = total > 0 ? "\u2588".repeat(Math.min(total * 3, barWidth)) : "\u2500";
     const colorClass = total === 0 ? "bar" : total <= 2 ? "bar-warn" : "bar-fail";
-
     html += `${date.padStart(8)} <span class="${colorClass}">${bar}</span> ${entry.criticalVulns}C ${entry.highVulns}H\n`;
   }
-
   html += `</div></div>`;
   return html;
 }
