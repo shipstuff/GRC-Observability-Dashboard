@@ -3,7 +3,7 @@ description: "Scan a repository for compliance issues and generate governance ar
 
 inputs:
   site_url:
-    description: "Live site URL for header/TLS checks (optional)"
+    description: "Live site URL for header/TLS checks (optional, used by dashboard Check Production button)"
     required: false
     default: ""
   dashboard_url:
@@ -30,28 +30,15 @@ runs:
       working-directory: .grc-scanner
       run: npm ci
 
-    - name: Wait for deploy (merge to main only)
-      if: github.event_name == 'push' && inputs.site_url != ''
-      shell: bash
-      run: |
-        echo "Waiting 90s for deploy to finish before running live checks..."
-        sleep 90
-
-    - name: Run GRC scan
+    - name: Run GRC scan (static only)
       shell: bash
       working-directory: .grc-scanner
       env:
         ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
         GRC_BRANCH: ${{ github.head_ref || github.ref_name }}
-        GRC_EVENT: ${{ github.event_name }}
       run: |
-        ARGS="${{ github.workspace }}"
-        # Only include live URL on push (merge) — not on PR since code isn't deployed yet
-        if [ "$GRC_EVENT" = "push" ] && [ -n "${{ inputs.site_url }}" ]; then
-          ARGS="$ARGS --url=${{ inputs.site_url }}"
-        fi
-        npx tsx scanner/index.ts $ARGS
+        npx tsx scanner/index.ts "${{ github.workspace }}"
 
     - name: POST manifest to dashboard
       if: inputs.dashboard_url != ''
@@ -65,6 +52,21 @@ runs:
             && echo "Manifest POSTed to dashboard" \
             || echo "::warning::Failed to POST manifest to dashboard"
         fi
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if [ -f "${{ github.workspace }}/.grc/pr-comment.md" ]; then
+          BODY=$(cat "${{ github.workspace }}/.grc/pr-comment.md")
+        else
+          BODY="## GRC Compliance Scan
+
+        Scan complete. Download **grc-scan-results** artifact for full reports."
+        fi
+        gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --body "$BODY"
 
     - name: Cleanup scanner
       shell: bash

@@ -151,36 +151,54 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [ ] AI-powered gap analysis in dashboard (depends on Phase 4)
 - [ ] Auto-fix PR generation (depends on Phase 4)
 
-## Phase 6: Open Source Readiness
+## Phase 6: Open Source Readiness — DONE
 
-Make the project usable by anyone — fork, self-host, and run against their own org.
-
-### Scanner + Action (already usable)
+### Scanner + Action
 - [x] Composite GitHub Action works for any public repo
-- [x] README with 4-step setup instructions
+- [x] README with setup instructions
 - [x] Example workflow file at `examples/grc-scan.yml`
+- [x] Slim consuming workflow (~15 lines, PR commenting built into action)
 
 ### Dashboard Self-Hosting
-- [ ] Make org name configurable via env var (remove hardcoded "shipstuff")
+- [x] Make org name configurable via `ORG_NAME` env var in wrangler.toml
 - [x] Add `dashboard_url` input to the action so repos know where to POST
-- [ ] Add deployment guide (pm2 + nginx, or Docker)
-- [ ] Docker Compose file for one-command self-hosting
+- [x] `wrangler.toml` with placeholder KV ID and setup comments
+- [x] Single codebase (Cloudflare Worker only, no Express duplication)
+- [x] README with wrangler setup guide (login, create KV, deploy)
+- [x] Removed hardcoded org references from code
+- [x] Removed personal/draft files from repo
+- [x] Cleaned up outdated docs
 - [ ] Add authentication to dashboard API (API key validation on POST)
 
 ### Documentation
 - [ ] Contributing guide
 - [ ] How to add new scan rules
 - [ ] How to add new policy templates
-- [ ] How to add new framework mappings
 
-## Phase 7: Blog Content
+## Phase 7: Future Enhancements
 
-Write these as you complete each phase — document what was learned and built:
+### GitHub App
+- [ ] Build GitHub App for zero-config install (no workflow file per repo)
+- [ ] App receives webhooks, clones repos, runs scans automatically
+- [ ] Auto-creates workflow + config files via PR on install
+
+### Additional Scanners
+- [ ] SBOM generation (CycloneDX format)
+- [ ] SAST via Semgrep integration
+- [ ] Input validation scanner (OWASP A03)
+
+### Dashboard
+- [ ] Authentication on API endpoints
+- [ ] Auditor evidence export (PDF/ZIP per framework)
+- [ ] AI-powered gap analysis in dashboard
+
+## Phase 8: Blog Content
+
+- [x] Security headers deep dive (published)
 - [ ] "How I Applied NIST CSF to a Personal Project"
 - [ ] "Risk Register for a Solo Developer"
 - [ ] Walk-throughs of policy templates created
 - [ ] Lessons from self-auditing your own infrastructure
-- [ ] Security headers deep dive — what each one does and why it matters
 
 ## Certification Pairing (recommended for entry-level GRC)
 - CompTIA Security+

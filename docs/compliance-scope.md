@@ -46,7 +46,7 @@
 
 ### Per-Repo View
 ```
-Repository: joeeftekhari.com
+Repository: example.com
 Branch: main
 Last Scan: 2026-04-08
 
@@ -84,7 +84,7 @@ If someone adds a form on a feature branch, the scan catches it and flags the pr
 ```
 📦 Audit Evidence Package — SOC 2 Type I
    Generated: 2026-04-08
-   Scope: shipstuff organization (3 repositories)
+   Scope: your organization
 
    CC6.1 — Logical Access Controls
    ├── Evidence: GitHub branch protection rules (API export)

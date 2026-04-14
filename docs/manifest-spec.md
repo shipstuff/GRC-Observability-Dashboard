@@ -10,7 +10,7 @@ YAML file committed to each repo at `.grc/manifest.yml`. Auto-generated — neve
 
 ```yaml
 # .grc/manifest.yml
-repo: shipstuff/joeeftekhari.com
+repo: your-org/your-site
 scan_date: 2026-04-08T12:00:00Z
 branch: main
 commit: abc123

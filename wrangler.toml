@@ -3,6 +3,12 @@ main = "dashboard/worker.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Optional: set your org name to display in the dashboard header
+# [vars]
+# ORG_NAME = "your-org"
+
 [[kv_namespaces]]
 binding = "GRC_KV"
-id = "5621fbae733f48bb8bd98366fc83f7fd"
+# Replace with your own KV namespace ID.
+# Create one with: npx wrangler kv namespace create GRC_KV
+id = "YOUR_KV_NAMESPACE_ID"

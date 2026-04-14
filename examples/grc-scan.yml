@@ -8,7 +8,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
@@ -16,32 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run GRC scan
-        uses: shipstuff/GRC-Observability-Dashboard@main
+      - uses: shipstuff/GRC-Observability-Dashboard@main
         with:
-          site_url: https://yoursite.com  # optional — for live header/TLS checks
-          dashboard_url: https://your-dashboard.example.com  # optional — POST manifest to dashboard
-
-      - name: Upload reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: grc-scan-results
-          path: .grc/
-          include-hidden-files: true
-          retention-days: 90
-
-      - name: Comment on PR
-        if: github.event_name == 'pull_request'
+          site_url: https://yoursite.com
+          dashboard_url: https://your-dashboard.workers.dev
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ -f .grc/pr-comment.md ]; then
-            BODY=$(cat .grc/pr-comment.md)
-          else
-            BODY="## GRC Compliance Scan
-
-          Scan complete. Download **grc-scan-results** artifact for full reports."
-          fi
-          gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
+          GITHUB_TOKEN: ${{ github.token }}
