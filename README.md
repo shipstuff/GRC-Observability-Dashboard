@@ -1,33 +1,51 @@
 # GRC Observability Dashboard
 
-Automated compliance scanning for every repo in your GitHub organization. Scans code for data collection, security issues, and governance gaps — then generates policies, risk assessments, and framework compliance reports.
+Automated compliance scanning for GitHub repos. Scans code for data collection, security issues, and governance gaps - then generates policies, risk assessments, and framework compliance reports. Results feed a central dashboard.
 
 ## What It Does
 
-On every push or PR, the scanner:
-
-- **Detects** data collection points (forms, API endpoints, cookies, tracking scripts)
-- **Identifies** third-party services and their data processing implications
-- **Checks** security headers, HTTPS/TLS, dependency vulnerabilities, secrets in code
-- **Evaluates** access controls (branch protection, auth on sensitive routes)
-- **Generates** compliance artifacts:
+On every push or PR, the scanner produces 10 compliance reports:
 
 | Report | Description |
 |--------|-------------|
-| `manifest.yml` | Structured compliance data — single source of truth |
-| `privacy-policy.md` | GDPR + CCPA compliant, auto-populated from scan findings |
-| `terms-of-service.md` | Site-specific ToS with detected services and features |
-| `security.txt` | RFC 9116 compliant security contact file |
-| `vulnerability-disclosure.md` | Responsible disclosure policy with in-scope/out-of-scope |
-| `incident-response-plan.md` | NIST SP 800-61 based IRP with site-specific procedures |
+| `manifest.yml` | Structured compliance data - single source of truth |
+| `privacy-policy.md` | GDPR + CCPA policy, populated from detected data collection |
+| `terms-of-service.md` | ToS with auto-detected service descriptions |
+| `security.txt` | RFC 9116 security contact file |
+| `vulnerability-disclosure.md` | Responsible disclosure policy |
+| `incident-response-plan.md` | NIST SP 800-61 based IRP |
 | `risk-assessment.md` | Likelihood x impact matrix with framework mappings |
-| `nist-csf-report.md` | NIST CSF 2.0 compliance with SOC 2 + ISO 27001 cross-mapping |
-| `security-headers-report.md` | Header status + copy-paste Express/Nginx fix |
-| `access-controls-report.md` | Branch protection and code-level auth findings |
+| `nist-csf-report.md` | 18 NIST CSF controls with SOC 2 + ISO 27001 cross-mapping |
+| `security-headers-report.md` | Header status + copy-paste fix |
+| `access-controls-report.md` | Branch protection and auth findings |
 
-## Quick Start
+## Setup
 
-### 1. Add the workflow to your repo
+### 1. Deploy the Dashboard
+
+```bash
+git clone https://github.com/YOUR_ORG/GRC-Observability-Dashboard.git
+cd GRC-Observability-Dashboard
+npm install
+
+# Login to Cloudflare
+npx wrangler login
+
+# Create KV storage
+npx wrangler kv namespace create GRC_KV
+# Copy the ID from the output
+
+# Edit wrangler.toml - paste the KV namespace ID
+# Optionally set ORG_NAME in [vars]
+
+# Run locally
+npx wrangler dev
+
+# Or deploy to Cloudflare
+npx wrangler deploy
+```
+
+### 2. Add the Action to Your Repos
 
 Create `.github/workflows/grc-scan.yml`:
 
@@ -40,7 +58,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
@@ -48,43 +66,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run GRC scan
-        uses: shipstuff/GRC-Observability-Dashboard@main
+      - uses: YOUR_ORG/GRC-Observability-Dashboard@main
         with:
-          site_url: https://yoursite.com  # optional — for live header/TLS checks
-          dashboard_url: https://your-dashboard.example.com  # optional — POST manifest to dashboard
-
-      - name: Upload reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: grc-scan-results
-          path: .grc/
-          include-hidden-files: true
-          retention-days: 90
-
-      - name: Comment on PR
-        if: github.event_name == 'pull_request'
+          site_url: https://yoursite.com
+          dashboard_url: https://your-dashboard.workers.dev
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ -f .grc/pr-comment.md ]; then
-            BODY=$(cat .grc/pr-comment.md)
-          else
-            BODY="## GRC Compliance Scan
-
-          Scan complete. Download **grc-scan-results** artifact for full reports."
-          fi
-          gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
+          GITHUB_TOKEN: ${{ github.token }}
 ```
 
-### 2. Add your site config
+### 3. Add Site Config
 
-Create `.grc/config.yml`:
+Create `.grc/config.yml` in each repo:
 
 ```yaml
-site_name: Your Site Name
+site_name: Your Site
 site_url: https://yoursite.com
 owner_name: Your Name
 contact_email: you@example.com
@@ -94,68 +89,23 @@ jurisdiction:
   - ccpa
 ```
 
-### 3. Update your .gitignore
-
-Add these lines to exclude generated scan output (only the config should be committed):
+### 4. Update .gitignore
 
 ```
-# GRC scan output (auto-generated)
 .grc/*
 !.grc/config.yml
 ```
 
-### 4. Push or open a PR
-
-The scan runs automatically. Reports are available as downloadable artifacts on the Actions run page.
-
-## AI Enhancements (Optional)
-
-Add an `ai` section to `.grc/config.yml`:
-
-```yaml
-ai:
-  enabled: true
-  provider: anthropic  # or openai
-```
-
-Then add the API key as a GitHub secret (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`).
-
-When enabled, AI provides:
-- PII classification for detected form fields
-- Plain-English risk narratives with business context
-- PR comment summaries
-- Gap analysis with prioritized recommendations
-
-The scanner works fully without AI — it only enhances output when available.
-
 ## Dashboard
 
-The dashboard provides a central view of compliance posture across all repos in your org. Repos POST their manifests to the dashboard API via the GitHub Action.
+The dashboard shows compliance posture across all your repos:
 
-**Features:**
 - Org-wide stats (compliance %, NIST CSF %, vulnerabilities, secrets)
-- Per-repo detail view with data collection, headers, TLS, deps, access controls, artifacts
-- NIST CSF tab with per-function scores, all 18 controls, SOC 2 + ISO 27001 cross-references
-- Branch comparison tab showing compliance diff across branches
-- Trend tracking with historical compliance, NIST, and vulnerability charts
-
-### Running the Dashboard
-
-```bash
-git clone https://github.com/shipstuff/GRC-Observability-Dashboard.git
-cd GRC-Observability-Dashboard
-npm install
-npm run dashboard
-```
-
-Dashboard runs at `http://localhost:3001`. Send it a manifest:
-
-```bash
-npm run scan -- /path/to/repo --url=https://yoursite.com
-curl -X POST -H "Content-Type: application/x-yaml" \
-  --data-binary @/path/to/repo/.grc/manifest.yml \
-  http://localhost:3001/api/report
-```
+- Per-repo detail with data collection, headers, TLS, deps, access controls, artifacts
+- NIST CSF tab with per-function scores and SOC 2 / ISO 27001 cross-references
+- Branch dropdown to compare compliance across branches
+- Trend tracking over time
+- "Check Production" button to verify live security headers on demand
 
 ### Dashboard API
 
@@ -165,52 +115,93 @@ curl -X POST -H "Content-Type: application/x-yaml" \
 | `/api/repos` | GET | All repo summaries |
 | `/api/repos/:owner/:name` | GET | Full manifest for a repo |
 | `/api/history/:owner/:name` | GET | Historical scan data |
+| `/api/check-production/:owner/:name` | POST | Check live security headers |
 
-## Running the Scanner Locally
+## Scanner
+
+Run the scanner locally without the dashboard:
 
 ```bash
-npm run scan -- /path/to/your/repo --url=https://yoursite.com
+npm run scan -- /path/to/repo --url=https://yoursite.com
 ```
 
-Reports are written to `/path/to/your/repo/.grc/`.
+Reports are written to `/path/to/repo/.grc/`.
+
+### What It Scans
+
+- **Forms** - HTML forms, input fields, PII classification
+- **Endpoints** - POST/PUT/PATCH route handlers, req.body fields
+- **Dependencies** - package.json against 20+ known services, npm audit for CVEs
+- **Cookies** - server and client cookie usage
+- **Tracking** - Google Analytics, Mixpanel, PostHog, etc.
+- **Secrets** - API keys, tokens, private keys in source
+- **Access Controls** - GitHub branch protection, auth middleware on routes
+- **Artifacts** - existing policies, security.txt, IRP
+- **Security Headers** - CSP, HSTS, X-Frame-Options, etc. (live URL check)
+- **TLS** - HTTPS enforcement, certificate expiry (live URL check)
+
+## AI Enhancements (Optional)
+
+Add to `.grc/config.yml`:
+
+```yaml
+ai:
+  enabled: true
+  provider: anthropic  # or openai
+```
+
+Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` as an environment variable or GitHub secret. The scanner works fully without AI.
 
 ## Architecture
 
 ```
-GRC-Observability-Dashboard (this repo)
-├── action.yml              ← Composite GitHub Action
-├── scanner/
-│   ├── index.ts            ← Entry point
-│   ├── rules/              ← Detection rules (forms, deps, cookies, etc.)
-│   ├── generators/         ← Report generators (risk, headers, framework)
-│   ├── frameworks/         ← NIST CSF mappings + SOC 2/ISO 27001 cross-map
-│   ├── templates/          ← Handlebars templates for policies
-│   └── ai/                 ← Optional AI enhancement layer
-├── dashboard/
-│   ├── server.ts           ← Express API + HTMX UI
-│   ├── store.ts            ← JSON file storage + history tracking
-│   └── views/render.ts     ← Dashboard templates
-├── examples/               ← Example workflow for consuming repos
-└── docs/                   ← Architecture and reference docs
+GRC-Observability-Dashboard/
+  action.yml                 # Composite GitHub Action
+  wrangler.toml              # Cloudflare Worker config
+  dashboard/
+    worker.ts                # Hono API + HTMX UI (Cloudflare Worker)
+    views/render.ts          # Dashboard templates
+  scanner/
+    index.ts                 # Scanner entry point
+    rules/                   # Detection rules
+    generators/              # Report generators
+    frameworks/              # NIST CSF + cross-mappings
+    templates/               # Handlebars policy templates
+    ai/                      # Optional AI enhancement layer
+  examples/
+    grc-scan.yml             # Example workflow for consuming repos
+  docs/                      # Architecture and reference docs
 
-Your repo
-├── .github/workflows/grc-scan.yml  ← Workflow file (copy from Quick Start)
-└── .grc/
-    ├── config.yml                  ← Your site config (committed)
-    └── *.md                        ← Generated reports (gitignored)
+Your repo/
+  .github/workflows/grc-scan.yml   # ~15 lines
+  .grc/config.yml                  # ~7 lines
 ```
 
-## Self-Hosting for Your Own Org
+## Configuration
 
-This project is designed to be forked and self-hosted:
+### wrangler.toml
 
-1. **Fork this repo** to your org
-2. **Deploy the dashboard** (`npm run dashboard`) to any server, VM, or container
-3. **Update the action reference** in your repos' workflows to point to your fork
-4. **Add `DASHBOARD_URL`** as a GitHub org variable so the action knows where to POST
+| Setting | Description |
+|---------|-------------|
+| `name` | Worker name (used in URL: `name.your-account.workers.dev`) |
+| `ORG_NAME` | Displayed in dashboard header (optional, set in `[vars]`) |
+| KV namespace `id` | Your KV storage ID (from `npx wrangler kv namespace create GRC_KV`) |
 
-The scanner and action work out of the box for any repo. The dashboard is a single Express server with JSON file storage — no database required.
+### Action Inputs
+
+| Input | Description | Required |
+|-------|-------------|----------|
+| `site_url` | Live URL for the "Check Production" button | No |
+| `dashboard_url` | Dashboard URL to POST manifests to | No |
+
+## Future
+
+- GitHub App (zero-config install, no workflow file needed per repo)
+- SBOM generation (CycloneDX)
+- SAST via Semgrep integration
+- Auditor evidence export (PDF/ZIP per framework)
+- Dashboard authentication
 
 ## Roadmap
 
-See [docs/implementation-checklist.md](docs/implementation-checklist.md) for the full roadmap.
+See [docs/implementation-checklist.md](docs/implementation-checklist.md).

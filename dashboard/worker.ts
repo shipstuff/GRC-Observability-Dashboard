@@ -6,6 +6,7 @@ import { renderDashboard, renderRepoDetail, renderNistView, renderBranchComparis
 
 type Bindings = {
   GRC_KV: KVNamespace;
+  ORG_NAME?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -295,7 +296,8 @@ app.get("/", async (c) => {
   // Sort by most recent scan
   summaries.sort((a, b) => new Date(b.scanDate).getTime() - new Date(a.scanDate).getTime());
 
-  return c.html(renderDashboard(summaries, branchesPerRepo));
+  const orgName = c.env.ORG_NAME || "";
+  return c.html(renderDashboard(summaries, branchesPerRepo, orgName));
 });
 
 app.get("/repo/:owner/:name", async (c) => {

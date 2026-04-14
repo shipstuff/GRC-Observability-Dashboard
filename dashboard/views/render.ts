@@ -36,7 +36,8 @@ function timeAgo(dateStr: string): string {
   return `${days}D AGO`;
 }
 
-function layout(title: string, content: string): string {
+function layout(title: string, content: string, orgName: string = ""): string {
+  const subtitle = orgName ? `${orgName.toUpperCase()} // ` : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -208,7 +209,7 @@ function layout(title: string, content: string): string {
 <body>
   <div class="header">
     <h1>GRC OBSERVABILITY</h1>
-    <div class="subtitle">GOVERNANCE RISK COMPLIANCE DASHBOARD</div>
+    <div class="subtitle">${subtitle}GOVERNANCE RISK COMPLIANCE DASHBOARD</div>
   </div>
   <div class="container">
     ${content}
@@ -280,13 +281,13 @@ function layout(title: string, content: string): string {
 </html>`;
 }
 
-export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<string, string[]>): string {
+export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<string, string[]>, orgName: string = ""): string {
   if (summaries.length === 0) {
     return layout("GRC OBSERVABILITY", `
       <div class="empty">
         <h2>NO TARGETS DETECTED</h2>
         <p>POST a manifest to <code>/api/report</code> to begin scanning.</p>
-      </div>`);
+      </div>`, orgName);
   }
 
   const totalRepos = summaries.length;
@@ -366,7 +367,7 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
     </div>`;
   }).join("\n");
 
-  return layout("GRC OBSERVABILITY", statsHtml + searchHtml + `<div class="section"><div class="section-title">Scanned Repos</div>${reposHtml}</div>`);
+  return layout("GRC OBSERVABILITY", statsHtml + searchHtml + `<div class="section"><div class="section-title">Scanned Repos</div>${reposHtml}</div>`, orgName);
 }
 
 export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): string {
