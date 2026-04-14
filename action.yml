@@ -37,6 +37,7 @@ runs:
         ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_API_KEY }}
         OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
         GRC_BRANCH: ${{ github.head_ref || github.ref_name }}
+        GH_TOKEN: ${{ github.token }}
       run: |
         npx tsx scanner/index.ts "${{ github.workspace }}"
 
