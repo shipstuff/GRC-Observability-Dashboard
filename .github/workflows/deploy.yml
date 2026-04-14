@@ -18,6 +18,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Configure wrangler.toml
+        run: |
+          sed -i "s/YOUR_KV_NAMESPACE_ID/${{ secrets.CLOUDFLARE_KV_ID }}/" wrangler.toml
+          sed -i 's/# ORG_NAME = "your-org"/ORG_NAME = "${{ vars.ORG_NAME }}"/' wrangler.toml
+
       - name: Deploy to Cloudflare Workers
         run: npx wrangler deploy
         env:
