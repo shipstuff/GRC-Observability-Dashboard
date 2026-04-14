@@ -46,6 +46,9 @@ export async function scanAccessControls(ctx: ScanContext): Promise<{
   const findings: AuthFinding[] = [];
 
   // Check GitHub branch protection via gh CLI if available
+  // Uses the non-admin branches endpoint (returns "protected" boolean)
+  // Detailed rules (reviewer count, signed commits) require admin access
+  // so we infer what we can from the basic API
   let controls: AccessControls = {
     branchProtection: null,
     requiredReviews: null,
@@ -53,45 +56,50 @@ export async function scanAccessControls(ctx: ScanContext): Promise<{
   };
 
   try {
+    await exec("gh", ["--version"], { timeout: 5000 });
+
+    // Non-admin API: GET /repos/{owner}/{repo}/branches/{branch}
+    // Returns { "protected": true/false } without requiring admin scope
     const { stdout } = await exec("gh", [
-      "api", `repos/${ctx.repoName}/branches/main/protection`,
-      "--jq", JSON.stringify({
-        enforceAdmins: ".enforce_admins.enabled",
-        requiredReviews: ".required_pull_request_reviews.required_approving_review_count",
-        signedCommits: ".required_signatures.enabled",
-      }),
+      "api", `repos/${ctx.repoName}/branches/main`,
+      "--jq", ".protected",
     ], { cwd: ctx.repoPath, timeout: 10000 });
 
-    const data = JSON.parse(stdout);
-    controls = {
-      branchProtection: true, // if the API call succeeded, protection exists
-      requiredReviews: typeof data.requiredReviews === "number" ? data.requiredReviews : 0,
-      signedCommits: data.signedCommits === true,
-    };
+    const isProtected = stdout.trim() === "true";
+    controls.branchProtection = isProtected;
 
-    findings.push({
-      type: "auth-present",
-      location: "GitHub",
-      detail: `Branch protection enabled. Required reviews: ${controls.requiredReviews}. Signed commits: ${controls.signedCommits ? "yes" : "no"}.`,
-      severity: "info",
-    });
-  } catch {
-    // gh CLI not available or no branch protection
-    try {
-      // Check if gh is available at all
-      await exec("gh", ["--version"], { timeout: 5000 });
-      // gh works but branch protection may not be set
-      controls.branchProtection = false;
+    if (isProtected) {
+      // Try to get detailed rules (may fail without admin scope — that's OK)
+      try {
+        const { stdout: detailsOut } = await exec("gh", [
+          "api", `repos/${ctx.repoName}/branches/main/protection`,
+          "--jq", "{requiredReviews: .required_pull_request_reviews.required_approving_review_count, signedCommits: .required_signatures.enabled}",
+        ], { cwd: ctx.repoPath, timeout: 10000 });
+
+        const details = JSON.parse(detailsOut);
+        controls.requiredReviews = typeof details.requiredReviews === "number" ? details.requiredReviews : null;
+        controls.signedCommits = details.signedCommits === true;
+      } catch {
+        // Admin API failed — we still know protection is enabled
+      }
+
+      findings.push({
+        type: "auth-present",
+        location: "GitHub",
+        detail: `Branch protection enabled.${controls.requiredReviews !== null ? ` Required reviews: ${controls.requiredReviews}.` : ""}${controls.signedCommits !== null ? ` Signed commits: ${controls.signedCommits ? "yes" : "no"}.` : ""}`,
+        severity: "info",
+      });
+    } else {
       findings.push({
         type: "unprotected-route",
         location: "GitHub",
         detail: "No branch protection rules found on main branch",
         severity: "warning",
       });
-    } catch {
-      // gh CLI not available
-      controls.branchProtection = null;
     }
+  } catch {
+    // gh CLI not available
+    controls.branchProtection = null;
   }
 
   // Scan code for auth patterns
