@@ -48,7 +48,7 @@ runs:
           curl -sf -X POST \
             -H "Content-Type: application/x-yaml" \
             --data-binary @"${{ github.workspace }}/.grc/manifest.yml" \
-            "${{ inputs.dashboard_url }}/api/report" \
+            "${{ inputs.dashboard_url }}/api/report?site_url=${{ inputs.site_url }}" \
             && echo "Manifest POSTed to dashboard" \
             || echo "::warning::Failed to POST manifest to dashboard"
         fi
