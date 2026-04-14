@@ -154,10 +154,23 @@ app.post("/api/report", async (c) => {
     }
     if (!manifest.repo || !manifest.scanDate) return c.json({ error: "Invalid manifest" }, 400);
 
-    // Store siteUrl from query param if provided
+    // Merge with existing data — preserve live check results (headers, TLS) if new scan is static-only
     const siteUrl = c.req.query("site_url") || "";
     const kvKey = `manifest:${manifest.repo}:${manifest.branch}`;
-    await c.env.GRC_KV.put(kvKey, JSON.stringify({ manifest, receivedAt: new Date().toISOString(), siteUrl }));
+    const existing = await c.env.GRC_KV.get(kvKey, "json") as { manifest: Manifest; receivedAt: string; siteUrl?: string } | null;
+
+    if (existing) {
+      // If new scan has no security headers but old one does, preserve the old live data
+      if (!manifest.securityHeaders && existing.manifest.securityHeaders) {
+        manifest.securityHeaders = existing.manifest.securityHeaders;
+      }
+      if (!manifest.https && existing.manifest.https) {
+        manifest.https = existing.manifest.https;
+      }
+    }
+
+    const storedSiteUrl = siteUrl || existing?.siteUrl || "";
+    await c.env.GRC_KV.put(kvKey, JSON.stringify({ manifest, receivedAt: new Date().toISOString(), siteUrl: storedSiteUrl }));
 
     const summary = summarize(manifest);
     await appendHistory(c.env.GRC_KV, manifest.repo, {
