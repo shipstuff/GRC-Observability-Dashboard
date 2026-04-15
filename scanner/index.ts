@@ -172,11 +172,6 @@ async function main() {
   const wellKnownDir = resolve(repoPath, ".well-known");
   await mkdir(wellKnownDir, { recursive: true });
 
-  // Write manifest (.grc/)
-  const manifestPath = resolve(grcDir, "manifest.yml");
-  await writeFile(manifestPath, stringify(manifest), "utf-8");
-  console.log(`\n📋 Manifest written to ${manifestPath}`);
-
   // Write effective outputDir so the Action can stage the right path
   // without needing to parse YAML in bash.
   await writeFile(resolve(grcDir, "output-dir"), config.outputDir + "\n", "utf-8");
@@ -204,6 +199,24 @@ async function main() {
     writeFile(irpPath, irp, "utf-8"),
     writeFile(securityTxtPath, securityTxt, "utf-8"),
   ]);
+
+  // Update manifest.artifacts to reflect what we just wrote. scanArtifacts
+  // ran before these writes (it checks the filesystem), so on a fresh repo
+  // it always returned "missing" even though we generate everything below.
+  // The manifest should describe the state AFTER the scanner runs.
+  manifest.artifacts = {
+    privacyPolicy: "generated",
+    termsOfService: "generated",
+    vulnerabilityDisclosure: "present",
+    incidentResponsePlan: "present",
+    securityTxt: "present",
+  };
+
+  // Write manifest LAST so it reflects everything we just did (including
+  // the fact that the policies now exist on disk).
+  const manifestPath = resolve(grcDir, "manifest.yml");
+  await writeFile(manifestPath, stringify(manifest), "utf-8");
+  console.log(`\n📋 Manifest written to ${manifestPath}`);
 
   console.log(`📄 Privacy policy written to ${policyPath}`);
   console.log(`📄 Terms of service written to ${tosPath}`);

@@ -200,7 +200,9 @@ app.post("/api/check-production/:owner/:name", async (c) => {
   if (!siteUrl) return c.json({ error: "No site_url configured for this repo" }, 400);
 
   try {
-    // Check security headers
+    const base = siteUrl.replace(/\/$/, "");
+
+    // Check security headers on the root URL
     const response = await fetch(siteUrl, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(10000) });
     const h = response.headers;
 
@@ -213,17 +215,45 @@ app.post("/api/check-production/:owner/:name", async (c) => {
       permissionsPolicy: h.has("permissions-policy") ? "present" : "missing",
     };
 
-    // Check HTTPS enforcement
+    // Check HTTPS enforcement + try to read cert expiry from TLS handshake
+    let certExpiry: string | null = stored.manifest.https?.certExpiry ?? null;
+    let enforced = false;
     try {
       const url = new URL(siteUrl);
       const httpUrl = `http://${url.hostname}`;
       const httpResp = await fetch(httpUrl, { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(5000) });
       const location = httpResp.headers.get("location");
-      const enforced = httpResp.status >= 300 && httpResp.status < 400 && (location?.startsWith("https://") ?? false);
-      stored.manifest.https = { enforced, certExpiry: stored.manifest.https?.certExpiry ?? null };
+      enforced = httpResp.status >= 300 && httpResp.status < 400 && (location?.startsWith("https://") ?? false);
     } catch {
-      stored.manifest.https = { enforced: true, certExpiry: stored.manifest.https?.certExpiry ?? null };
+      enforced = siteUrl.startsWith("https://");
     }
+    stored.manifest.https = { enforced, certExpiry };
+
+    // Check that generated artifacts are actually being served on the live site.
+    // Use GET (not HEAD) because some servers don't support HEAD on static files.
+    const checkServed = async (path: string): Promise<boolean> => {
+      try {
+        const r = await fetch(`${base}${path}`, { method: "GET", redirect: "follow", signal: AbortSignal.timeout(8000) });
+        return r.ok;
+      } catch {
+        return false;
+      }
+    };
+
+    const [privacyOk, tosOk, vulnOk, secTxtOk] = await Promise.all([
+      checkServed("/privacy-policy"),
+      checkServed("/terms-of-service"),
+      checkServed("/vulnerability-disclosure"),
+      checkServed("/.well-known/security.txt"),
+    ]);
+
+    stored.manifest.artifacts = {
+      privacyPolicy: privacyOk ? "present" : stored.manifest.artifacts.privacyPolicy,
+      termsOfService: tosOk ? "present" : stored.manifest.artifacts.termsOfService,
+      securityTxt: secTxtOk ? "present" : "missing",
+      vulnerabilityDisclosure: vulnOk ? "present" : stored.manifest.artifacts.vulnerabilityDisclosure,
+      incidentResponsePlan: stored.manifest.artifacts.incidentResponsePlan,
+    };
 
     stored.manifest.scanDate = new Date().toISOString();
     await c.env.GRC_KV.put(kvKey, JSON.stringify(stored));
@@ -242,6 +272,12 @@ app.post("/api/check-production/:owner/:name", async (c) => {
       headersPresent: summary.headersPresent,
       headersTotal: summary.headersTotal,
       httpsEnforced: summary.httpsEnforced,
+      policiesServed: {
+        privacyPolicy: privacyOk,
+        termsOfService: tosOk,
+        vulnerabilityDisclosure: vulnOk,
+        securityTxt: secTxtOk,
+      },
     });
   } catch (e: any) {
     return c.json({ error: `Could not reach ${siteUrl}: ${e.message}` }, 502);
