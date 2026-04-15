@@ -177,6 +177,10 @@ async function main() {
   await writeFile(manifestPath, stringify(manifest), "utf-8");
   console.log(`\n📋 Manifest written to ${manifestPath}`);
 
+  // Write effective outputDir so the Action can stage the right path
+  // without needing to parse YAML in bash.
+  await writeFile(resolve(grcDir, "output-dir"), config.outputDir + "\n", "utf-8");
+
   // Render policies
   const renderCtx = { manifest, config };
   const [privacyPolicy, termsOfService, vulnDisclosure, irp] = await Promise.all([

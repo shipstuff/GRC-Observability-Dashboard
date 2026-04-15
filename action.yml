@@ -46,9 +46,17 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}
       run: |
-        # Read outputDir from config (falls back to default used by scanner)
-        OUTPUT_DIR=$(grep -E '^output_dir:' .grc/config.yml 2>/dev/null | sed 's/output_dir:[[:space:]]*//' | tr -d '"' | tr -d "'" | xargs || echo "docs/policies")
-        if [ -z "$OUTPUT_DIR" ]; then OUTPUT_DIR="docs/policies"; fi
+        # Scanner writes the effective outputDir (post-sanitization) to this file
+        # so we stage the exact same path the scanner used.
+        if [ ! -f .grc/output-dir ]; then
+          echo "::warning::No .grc/output-dir file found — scan may have failed. Skipping policy commit."
+          exit 0
+        fi
+        OUTPUT_DIR=$(tr -d '\n' < .grc/output-dir)
+        if [ -z "$OUTPUT_DIR" ]; then
+          echo "::warning::Empty outputDir — skipping policy commit."
+          exit 0
+        fi
 
         # Stage only the files the scanner is allowed to manage
         git add -- "$OUTPUT_DIR/" .well-known/security.txt 2>/dev/null || true
