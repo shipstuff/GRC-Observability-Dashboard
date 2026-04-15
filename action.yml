@@ -41,6 +41,47 @@ runs:
       run: |
         npx tsx scanner/index.ts "${{ github.workspace }}"
 
+    - name: Commit generated policies to PR branch
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        # Scanner writes the effective outputDir (post-sanitization) to this file
+        # so we stage the exact same path the scanner used.
+        if [ ! -f .grc/output-dir ]; then
+          echo "::warning::No .grc/output-dir file found — scan may have failed. Skipping policy commit."
+          exit 0
+        fi
+        OUTPUT_DIR=$(tr -d '\n' < .grc/output-dir)
+        if [ -z "$OUTPUT_DIR" ]; then
+          echo "::warning::Empty outputDir — skipping policy commit."
+          exit 0
+        fi
+
+        # Stage only the files the scanner is allowed to manage
+        git add -- "$OUTPUT_DIR/" .well-known/security.txt 2>/dev/null || true
+
+        # Check if anything actually changed
+        if git diff --staged --quiet; then
+          echo "No policy changes to commit."
+          exit 0
+        fi
+
+        # Identify as grc-bot so commits are clearly attributed
+        git config user.name "grc-bot"
+        git config user.email "grc-bot@users.noreply.github.com"
+
+        # Commit and push, but don't fail the action if we lack write permission
+        if git commit -m "chore(grc): update generated compliance policies" \
+           && git push origin "HEAD:${{ github.head_ref }}" 2>&1; then
+          echo "✓ Policies committed to ${{ github.head_ref }}"
+        else
+          echo "::warning::Could not push policies to PR branch. Workflow may lack 'contents: write' permission. Generated files exist in the scan artifacts but won't be persisted to the repo."
+          # Reset the index so we don't leave staged-but-uncommitted state
+          git reset --hard HEAD~1 2>/dev/null || git reset HEAD 2>/dev/null || true
+          exit 0
+        fi
+
     - name: POST manifest to dashboard
       if: inputs.dashboard_url != ''
       shell: bash
