@@ -6,11 +6,15 @@ import { SiteConfig } from "../config.js";
  *
  * Required fields: Contact, Expires
  * Recommended fields: Preferred-Languages, Canonical, Policy
+ *
+ * Expires is stable: pinned to Jan 1 of next year (00:00 UTC). This makes
+ * generation idempotent within a calendar year — scans in 2026 always
+ * produce `Expires: 2027-01-01T00:00:00.000Z`. File only changes at year
+ * boundary or when config changes.
  */
 export function generateSecurityTxt(config: SiteConfig): string {
-  // Expires 1 year from generation — RFC 9116 requires this field
-  const expires = new Date();
-  expires.setFullYear(expires.getFullYear() + 1);
+  const now = new Date();
+  const expires = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1, 0, 0, 0, 0));
 
   const contact = config.securityContact || config.contactEmail;
   const siteUrl = config.siteUrl.replace(/\/$/, "");

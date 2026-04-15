@@ -18,6 +18,7 @@ export interface SiteConfig {
   logRetentionDays: number;
   jurisdiction: string[];
   preferredLanguages: string[];
+  outputDir: string;
   ai: AIConfig;
 }
 
@@ -30,6 +31,7 @@ const DEFAULTS: SiteConfig = {
   logRetentionDays: 90,
   jurisdiction: ["gdpr", "ccpa"],
   preferredLanguages: ["en"],
+  outputDir: "docs/policies",
   ai: { enabled: false, provider: "anthropic" },
 };
 
@@ -53,6 +55,7 @@ export async function loadConfig(repoPath: string): Promise<SiteConfig> {
     logRetentionDays: raw.log_retention_days ?? DEFAULTS.logRetentionDays,
     jurisdiction: raw.jurisdiction ?? DEFAULTS.jurisdiction,
     preferredLanguages: raw.preferred_languages ?? DEFAULTS.preferredLanguages,
+    outputDir: raw.output_dir ?? DEFAULTS.outputDir,
     ai: {
       enabled: raw.ai?.enabled ?? DEFAULTS.ai.enabled,
       provider: raw.ai?.provider ?? DEFAULTS.ai.provider,
