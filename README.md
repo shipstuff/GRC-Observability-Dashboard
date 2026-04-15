@@ -116,6 +116,40 @@ The dashboard shows compliance posture across all your repos:
 | `/api/repos/:owner/:name` | GET | Full manifest for a repo |
 | `/api/history/:owner/:name` | GET | Historical scan data |
 | `/api/check-production/:owner/:name` | POST | Check live security headers |
+| `/health` | GET | Service health probe |
+| `/badge?repo=:owner/:name` | GET | SVG badge for a repo |
+| `/badge/:owner/:name` | GET | Path-style SVG badge for a repo |
+
+### Badge
+
+Any scanned repo can expose a public status badge from the deployed worker.
+
+Markdown image:
+
+```md
+![GRC observability](https://grc-dashboard.jdeftekhari.workers.dev/badge?repo=shipstuff/GRC-Observability-Dashboard)
+```
+
+Linked badge:
+
+```md
+[![GRC observability](https://grc-dashboard.jdeftekhari.workers.dev/badge?repo=shipstuff/GRC-Observability-Dashboard)](https://grc-dashboard.jdeftekhari.workers.dev/repo/shipstuff/GRC-Observability-Dashboard)
+```
+
+Branch-specific badge:
+
+```md
+![GRC observability](https://grc-dashboard.jdeftekhari.workers.dev/badge/shipstuff/GRC-Observability-Dashboard?branch=main)
+```
+
+Badge states:
+
+- `pass NN%` — no critical findings and overall posture is healthy
+- `warn NN%` — medium-risk posture, missing controls, or high vulnerabilities
+- `fail NN%` — critical vulnerabilities, detected secrets, or very low compliance
+- `not scanned` — the dashboard has no manifest for that repo/branch yet
+
+GitHub’s GitHub App badge UI is a separate static logo upload. See [docs/github-app-badge.md](docs/github-app-badge.md) for the distinction and setup steps.
 
 ## Scanner
 
