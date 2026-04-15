@@ -103,18 +103,25 @@ export async function scanAccessControls(ctx: ScanContext): Promise<{
     if (rules.length > 0) {
       controls.branchProtection = true;
 
-      // pull_request rule carries required_approving_review_count
-      const prRule = rules.find(r => r.type === "pull_request");
-      if (prRule?.parameters) {
-        const count = prRule.parameters["required_approving_review_count"];
-        if (typeof count === "number") controls.requiredReviews = count;
+      // Aggregate ALL pull_request rules (org-level + repo-level can both apply).
+      // Use the strictest required_approving_review_count across all of them.
+      const prRules = rules.filter(r => r.type === "pull_request");
+      if (prRules.length > 0) {
+        const counts: number[] = [];
+        for (const r of prRules) {
+          const count = r.parameters?.["required_approving_review_count"];
+          if (typeof count === "number") counts.push(count);
+        }
+        if (counts.length > 0) {
+          controls.requiredReviews = Math.max(...counts);
+        }
       }
 
       // required_signatures rule means signed commits are enforced
       controls.signedCommits = rules.some(r => r.type === "required_signatures");
 
-      // Surface what we found
-      const ruleTypes = rules.map(r => r.type).join(", ");
+      // Surface what we found (de-duplicated rule types)
+      const ruleTypes = [...new Set(rules.map(r => r.type))].join(", ");
       findings.push({
         type: "auth-present",
         location: "GitHub",
@@ -132,7 +139,15 @@ export async function scanAccessControls(ctx: ScanContext): Promise<{
         });
       }
     } else if (controls.branchProtection === null) {
-      // Already handled in the catch block above; do nothing
+      // Rulesets endpoint succeeded but returned []. Main has no active rules.
+      // This is different from "CLI unavailable" — main is definitively unprotected.
+      controls.branchProtection = false;
+      findings.push({
+        type: "unprotected-route",
+        location: "GitHub",
+        detail: "No branch protection rules found on main branch",
+        severity: "warning",
+      });
     } else if (controls.branchProtection === false) {
       // Already handled; do nothing
     }
