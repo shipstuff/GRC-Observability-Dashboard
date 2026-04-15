@@ -58,44 +58,83 @@ export async function scanAccessControls(ctx: ScanContext): Promise<{
   try {
     await exec("gh", ["--version"], { timeout: 5000 });
 
-    // Non-admin API: GET /repos/{owner}/{repo}/branches/{branch}
-    // Returns { "protected": true/false } without requiring admin scope
-    const { stdout } = await exec("gh", [
-      "api", `repos/${ctx.repoName}/branches/main`,
-      "--jq", ".protected",
-    ], { cwd: ctx.repoPath, timeout: 10000 });
-
-    const isProtected = stdout.trim() === "true";
-    controls.branchProtection = isProtected;
-
-    if (isProtected) {
-      // Try to get detailed rules (may fail without admin scope — that's OK)
+    // Rulesets API: GET /repos/{owner}/{repo}/rules/branches/{branch}
+    // Returns the effective rules applied to a branch. Works with standard
+    // GITHUB_TOKEN scope (no admin required). Covers the newer GitHub
+    // Rulesets AND legacy branch protection rules (both surface here).
+    let rules: Array<{ type: string; parameters?: Record<string, unknown> }> = [];
+    try {
+      const { stdout: rulesOut } = await exec("gh", [
+        "api", `repos/${ctx.repoName}/rules/branches/main`,
+      ], { cwd: ctx.repoPath, timeout: 10000 });
+      rules = JSON.parse(rulesOut);
+    } catch {
+      // Rulesets API not accessible — fall back to the branches endpoint
+      // which at least tells us if SOME protection exists
       try {
-        const { stdout: detailsOut } = await exec("gh", [
-          "api", `repos/${ctx.repoName}/branches/main/protection`,
-          "--jq", "{requiredReviews: .required_pull_request_reviews.required_approving_review_count, signedCommits: .required_signatures.enabled}",
+        const { stdout } = await exec("gh", [
+          "api", `repos/${ctx.repoName}/branches/main`,
+          "--jq", ".protected",
         ], { cwd: ctx.repoPath, timeout: 10000 });
-
-        const details = JSON.parse(detailsOut);
-        controls.requiredReviews = typeof details.requiredReviews === "number" ? details.requiredReviews : null;
-        controls.signedCommits = details.signedCommits === true;
+        const isProtected = stdout.trim() === "true";
+        controls.branchProtection = isProtected;
+        if (isProtected) {
+          findings.push({
+            type: "auth-present",
+            location: "GitHub",
+            detail: "Branch protection enabled (details unavailable — needs elevated scope)",
+            severity: "info",
+          });
+        } else {
+          findings.push({
+            type: "unprotected-route",
+            location: "GitHub",
+            detail: "No branch protection rules found on main branch",
+            severity: "warning",
+          });
+        }
       } catch {
-        // Admin API failed — we still know protection is enabled
+        controls.branchProtection = null;
+      }
+      // Done — can't read detailed rules
+      rules = [];
+    }
+
+    if (rules.length > 0) {
+      controls.branchProtection = true;
+
+      // pull_request rule carries required_approving_review_count
+      const prRule = rules.find(r => r.type === "pull_request");
+      if (prRule?.parameters) {
+        const count = prRule.parameters["required_approving_review_count"];
+        if (typeof count === "number") controls.requiredReviews = count;
       }
 
+      // required_signatures rule means signed commits are enforced
+      controls.signedCommits = rules.some(r => r.type === "required_signatures");
+
+      // Surface what we found
+      const ruleTypes = rules.map(r => r.type).join(", ");
       findings.push({
         type: "auth-present",
         location: "GitHub",
-        detail: `Branch protection enabled.${controls.requiredReviews !== null ? ` Required reviews: ${controls.requiredReviews}.` : ""}${controls.signedCommits !== null ? ` Signed commits: ${controls.signedCommits ? "yes" : "no"}.` : ""}`,
+        detail: `Branch protection enabled. Rules: ${ruleTypes}.${controls.requiredReviews !== null ? ` Required reviews: ${controls.requiredReviews}.` : ""} Signed commits: ${controls.signedCommits ? "required" : "not required"}.`,
         severity: "info",
       });
-    } else {
-      findings.push({
-        type: "unprotected-route",
-        location: "GitHub",
-        detail: "No branch protection rules found on main branch",
-        severity: "warning",
-      });
+
+      // Flag signed-commits specifically if not enforced
+      if (!controls.signedCommits) {
+        findings.push({
+          type: "unprotected-route",
+          location: "GitHub",
+          detail: "Signed commits are not required on main. Consider enabling for supply-chain integrity.",
+          severity: "info",
+        });
+      }
+    } else if (controls.branchProtection === null) {
+      // Already handled in the catch block above; do nothing
+    } else if (controls.branchProtection === false) {
+      // Already handled; do nothing
     }
   } catch {
     // gh CLI not available
