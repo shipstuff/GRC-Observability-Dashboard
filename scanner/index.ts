@@ -74,7 +74,7 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
   if (siteUrl) console.log(`   Live URL: ${siteUrl}`);
   console.log("");
 
-  // Run all static scans in parallel
+  // Run all static scans in parallel (except scanArtifacts — see below)
   console.log("   Scanning...");
   const [
     formData,
@@ -83,7 +83,6 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     endpointData,
     secretsData,
     trackingData,
-    artifacts,
     { controls: accessControls, findings: authFindings },
   ] = await Promise.all([
     scanForms(ctx).then(r => { console.log(`   ✓ Forms: ${r.length} found`); return r; }),
@@ -92,9 +91,20 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     scanEndpoints(ctx).then(r => { console.log(`   ✓ Endpoints: ${r.length} POST handlers`); return r; }),
     scanSecrets(ctx).then(r => { console.log(`   ✓ Secrets: ${r.findings.length} potential leaks`); return r; }),
     scanTracking(ctx).then(r => { console.log(`   ✓ Tracking: ${r.length} services`); return r; }),
-    scanArtifacts(ctx, config.outputDir).then(r => { console.log(`   ✓ Artifacts: checked`); return r; }),
     scanAccessControls(ctx).then(r => { console.log(`   ✓ Access controls: ${r.findings.length} findings`); return r; }),
   ]);
+
+  // scanArtifacts is NOT in the parallel block above because it needs to
+  // run AFTER the scanner writes policy files to disk. main() handles that
+  // ordering and then sets manifest.artifacts from the real filesystem state.
+  // We default to "missing" here so the type is satisfied — main() overwrites.
+  const artifacts = {
+    privacyPolicy: "missing" as const,
+    termsOfService: "missing" as const,
+    securityTxt: "missing" as const,
+    vulnerabilityDisclosure: "missing" as const,
+    incidentResponsePlan: "missing" as const,
+  };
 
   // Run live checks (optional, sequential to avoid hammering)
   let securityHeaders = null;
@@ -130,6 +140,11 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     }
   }
 
+  // Include policy_urls from config so Check Production on the dashboard
+  // knows which URLs to verify. Only populated if user has set them — empty
+  // object if nothing is configured.
+  const policyUrls = Object.keys(config.policyUrls).length > 0 ? config.policyUrls : undefined;
+
   const manifest: Manifest = {
     repo: repoName,
     scanDate: new Date().toISOString(),
@@ -143,6 +158,7 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     secretsScan: secretsData,
     artifacts,
     accessControls,
+    policyUrls,
   };
 
   return { manifest, authFindings };
@@ -171,11 +187,6 @@ async function main() {
   // security.txt must live at /.well-known/security.txt (RFC 9116)
   const wellKnownDir = resolve(repoPath, ".well-known");
   await mkdir(wellKnownDir, { recursive: true });
-
-  // Write manifest (.grc/)
-  const manifestPath = resolve(grcDir, "manifest.yml");
-  await writeFile(manifestPath, stringify(manifest), "utf-8");
-  console.log(`\n📋 Manifest written to ${manifestPath}`);
 
   // Write effective outputDir so the Action can stage the right path
   // without needing to parse YAML in bash.
@@ -207,6 +218,26 @@ async function main() {
 
   console.log(`📄 Privacy policy written to ${policyPath}`);
   console.log(`📄 Terms of service written to ${tosPath}`);
+
+  // Now that policies exist on disk, run scanArtifacts to populate the
+  // manifest with authoritative file-presence data. This used to run
+  // during scan() but that was BEFORE the writes, so on fresh repos it
+  // always reported "missing" even though we were about to write them.
+  // The real filesystem state after writes is what belongs in the manifest.
+  const ctxForArtifacts: ScanContext = {
+    repoPath: resolve(repoPath),
+    repoName: manifest.repo,
+    branch: manifest.branch,
+    commit: manifest.commit,
+    siteUrl,
+  };
+  manifest.artifacts = await scanArtifacts(ctxForArtifacts, config.outputDir);
+
+  // Write manifest LAST so it reflects everything the scanner did.
+  const manifestPath = resolve(grcDir, "manifest.yml");
+  await writeFile(manifestPath, stringify(manifest), "utf-8");
+  console.log(`\n📋 Manifest written to ${manifestPath}`);
+
   // Generate security headers report if live checks were run
   if (manifest.securityHeaders) {
     const headerRecs = generateHeaderRecommendations(manifest, config);

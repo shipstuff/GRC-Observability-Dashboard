@@ -159,6 +159,14 @@ app.post("/api/report", async (c) => {
     const kvKey = `manifest:${manifest.repo}:${manifest.branch}`;
     const existing = await c.env.GRC_KV.get(kvKey, "json") as { manifest: Manifest; receivedAt: string; siteUrl?: string } | null;
 
+    // Defensive: legacy manifests may not have some fields. Fill them in.
+    if (!manifest.artifacts) {
+      manifest.artifacts = {
+        privacyPolicy: "missing", termsOfService: "missing", securityTxt: "missing",
+        vulnerabilityDisclosure: "missing", incidentResponsePlan: "missing",
+      };
+    }
+
     if (existing) {
       // If new scan has no security headers but old one does, preserve the old live data
       if (!manifest.securityHeaders && existing.manifest.securityHeaders) {
@@ -166,6 +174,10 @@ app.post("/api/report", async (c) => {
       }
       if (!manifest.https && existing.manifest.https) {
         manifest.https = existing.manifest.https;
+      }
+      // Preserve policyUrls if new scan doesn't have them (e.g., older scanner version)
+      if (!manifest.policyUrls && existing.manifest.policyUrls) {
+        manifest.policyUrls = existing.manifest.policyUrls;
       }
     }
 
@@ -200,7 +212,9 @@ app.post("/api/check-production/:owner/:name", async (c) => {
   if (!siteUrl) return c.json({ error: "No site_url configured for this repo" }, 400);
 
   try {
-    // Check security headers
+    const base = siteUrl.replace(/\/$/, "");
+
+    // Check security headers on the root URL
     const response = await fetch(siteUrl, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(10000) });
     const h = response.headers;
 
@@ -225,6 +239,71 @@ app.post("/api/check-production/:owner/:name", async (c) => {
       stored.manifest.https = { enforced: true, certExpiry: stored.manifest.https?.certExpiry ?? null };
     }
 
+    // Check configured policy URLs. Only verify URLs the user has explicitly
+    // set in .grc/config.yml under policy_urls. If a URL isn't configured,
+    // we simply don't check it — no false negatives.
+    const policyUrls = stored.manifest.policyUrls || {};
+    const resolveUrl = (pathOrUrl: string): string => {
+      if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) return pathOrUrl;
+      return `${base}${pathOrUrl.startsWith("/") ? pathOrUrl : "/" + pathOrUrl}`;
+    };
+    const checkServed = async (url: string): Promise<boolean> => {
+      try {
+        const r = await fetch(url, { method: "GET", redirect: "follow", signal: AbortSignal.timeout(8000) });
+        return r.ok;
+      } catch {
+        return false;
+      }
+    };
+
+    const policyServed: Record<string, "served" | "unreachable" | "not-configured"> = {
+      privacyPolicy: "not-configured",
+      termsOfService: "not-configured",
+      vulnerabilityDisclosure: "not-configured",
+      incidentResponsePlan: "not-configured",
+      securityTxt: "not-configured",
+    };
+
+    const checks: Array<Promise<void>> = [];
+    for (const key of Object.keys(policyServed) as Array<keyof typeof policyServed>) {
+      const configuredUrl = policyUrls[key as keyof typeof policyUrls];
+      if (!configuredUrl) continue;
+      checks.push(
+        checkServed(resolveUrl(configuredUrl)).then(ok => {
+          policyServed[key] = ok ? "served" : "unreachable";
+        })
+      );
+    }
+    await Promise.all(checks);
+
+    // Only update manifest.artifacts from live checks when we actually verified something.
+    // Defensive: ensure artifacts exists for legacy manifests without the field.
+    if (!stored.manifest.artifacts) {
+      stored.manifest.artifacts = {
+        privacyPolicy: "missing",
+        termsOfService: "missing",
+        securityTxt: "missing",
+        vulnerabilityDisclosure: "missing",
+        incidentResponsePlan: "missing",
+      };
+    }
+    const artifactKeys: Array<[keyof Manifest["artifacts"], keyof typeof policyServed]> = [
+      ["privacyPolicy", "privacyPolicy"],
+      ["termsOfService", "termsOfService"],
+      ["vulnerabilityDisclosure", "vulnerabilityDisclosure"],
+      ["incidentResponsePlan", "incidentResponsePlan"],
+      ["securityTxt", "securityTxt"],
+    ];
+    for (const [artifactKey, servedKey] of artifactKeys) {
+      const status = policyServed[servedKey];
+      if (status === "served") {
+        stored.manifest.artifacts[artifactKey] = "present";
+      }
+      // If "unreachable" or "not-configured", PRESERVE the existing status.
+      // Don't regress a generated/present artifact to missing just because
+      // the live URL wasn't configured or temporarily failed.
+    }
+
     stored.manifest.scanDate = new Date().toISOString();
     await c.env.GRC_KV.put(kvKey, JSON.stringify(stored));
 
@@ -242,6 +321,8 @@ app.post("/api/check-production/:owner/:name", async (c) => {
       headersPresent: summary.headersPresent,
       headersTotal: summary.headersTotal,
       httpsEnforced: summary.httpsEnforced,
+      policyUrls: policyUrls,
+      policyServed,
     });
   } catch (e: any) {
     return c.json({ error: `Could not reach ${siteUrl}: ${e.message}` }, 502);
