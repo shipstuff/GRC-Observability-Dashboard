@@ -140,10 +140,9 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     }
   }
 
-  // Include policy_urls from config so Check Production on the dashboard
-  // knows which URLs to verify. Only populated if user has set them — empty
-  // object if nothing is configured.
-  const policyUrls = Object.keys(config.policyUrls).length > 0 ? config.policyUrls : undefined;
+  // Always emit policy_urls (even if empty) so the dashboard can distinguish
+  // "user opted out" (empty object) from "legacy scanner" (field missing).
+  const policyUrls = config.policyUrls;
 
   const manifest: Manifest = {
     repo: repoName,

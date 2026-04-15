@@ -175,8 +175,10 @@ app.post("/api/report", async (c) => {
       if (!manifest.https && existing.manifest.https) {
         manifest.https = existing.manifest.https;
       }
-      // Preserve policyUrls if new scan doesn't have them (e.g., older scanner version)
-      if (!manifest.policyUrls && existing.manifest.policyUrls) {
+      // Only fall back to existing policyUrls if the incoming manifest is
+      // MISSING the field entirely (legacy scanner). A present-but-empty
+      // policyUrls object means the user explicitly opted out — respect that.
+      if (manifest.policyUrls === undefined && existing.manifest.policyUrls) {
         manifest.policyUrls = existing.manifest.policyUrls;
       }
     }
@@ -276,33 +278,10 @@ app.post("/api/check-production/:owner/:name", async (c) => {
     }
     await Promise.all(checks);
 
-    // Only update manifest.artifacts from live checks when we actually verified something.
-    // Defensive: ensure artifacts exists for legacy manifests without the field.
-    if (!stored.manifest.artifacts) {
-      stored.manifest.artifacts = {
-        privacyPolicy: "missing",
-        termsOfService: "missing",
-        securityTxt: "missing",
-        vulnerabilityDisclosure: "missing",
-        incidentResponsePlan: "missing",
-      };
-    }
-    const artifactKeys: Array<[keyof Manifest["artifacts"], keyof typeof policyServed]> = [
-      ["privacyPolicy", "privacyPolicy"],
-      ["termsOfService", "termsOfService"],
-      ["vulnerabilityDisclosure", "vulnerabilityDisclosure"],
-      ["incidentResponsePlan", "incidentResponsePlan"],
-      ["securityTxt", "securityTxt"],
-    ];
-    for (const [artifactKey, servedKey] of artifactKeys) {
-      const status = policyServed[servedKey];
-      if (status === "served") {
-        stored.manifest.artifacts[artifactKey] = "present";
-      }
-      // If "unreachable" or "not-configured", PRESERVE the existing status.
-      // Don't regress a generated/present artifact to missing just because
-      // the live URL wasn't configured or temporarily failed.
-    }
+    // We DON'T update manifest.artifacts here. That field reflects repo state
+    // (does the policy file exist at outputDir?), set by the scanner. Live
+    // servability is a separate concept exposed via the policyServed response
+    // field so the UI can display both independently.
 
     stored.manifest.scanDate = new Date().toISOString();
     await c.env.GRC_KV.put(kvKey, JSON.stringify(stored));
