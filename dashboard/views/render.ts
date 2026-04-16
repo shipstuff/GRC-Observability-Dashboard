@@ -712,7 +712,12 @@ export function renderTrendChart(history: HistoryEntry[], repo: string, branch: 
     { values: vulnValues, metric: "vulns", axis: "right" },
   ];
 
-  const chartId = (repo + "-" + branch).replace(/[^a-zA-Z0-9]/g, "-");
+  // Base64url encoding keeps repo+branch 1:1 so distinct pairs never collide.
+  // HTML5 IDs accept [A-Za-z0-9_-], which matches base64url's alphabet.
+  const chartId = "c" + btoa(repo + "\0" + branch)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
   const hoverData: HoverDatum[] = recent.map(e => ({
     date: new Date(e.scanDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
     commit: e.commit,
