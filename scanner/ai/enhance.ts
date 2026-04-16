@@ -89,7 +89,14 @@ Respond ONLY with the JSON array, no other text.`,
   const response = await client.chat(messages, 2048);
 
   try {
-    const classifications = JSON.parse(response.content) as Array<{
+    // Many LLMs wrap JSON in markdown code fences (```json ... ```)
+    // despite being told not to. Strip them before parsing.
+    let content = response.content.trim();
+    if (content.startsWith("```")) {
+      content = content.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+    }
+
+    const classifications = JSON.parse(content) as Array<{
       field: string;
       category: string;
       gdprCategory: string;
