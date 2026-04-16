@@ -114,9 +114,9 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - **GRC concept:** Control frameworks, control objectives, evidence collection
 - **Known limitation:** 18 of NIST CSF 2.0's ~100 subcategories. "75% NIST CSF compliant" is 75% of our 18 controls, not the full framework.
 
-## Phase 4: AI Enhancement Layer — BUILT, NOT VALIDATED
+## Phase 4: AI Enhancement Layer — VALIDATED
 
-Optional module — scanner works fully without AI. If an API key is provided, AI enhances output.
+Optional module — scanner works fully without AI. If an API key is provided, AI enhances output. Validated end-to-end with OpenAI gpt-4o-mini on joeeftekhari.com.
 
 ### AI Module Foundation — DONE
 - [x] Create `scanner/ai/provider.ts` with provider abstraction (Anthropic, OpenAI)
@@ -124,21 +124,22 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] API key via environment variable / GitHub secrets (never in config file)
 - [x] Graceful degradation — disabled in config: silent skip; enabled without key: warns and skips
 
-### AI-Enhanced Scans — CODE EXISTS, OUTPUT UNVALIDATED
-- [x] PII classification — LLM classifies every form field with GDPR category, confidence, reasoning
-- [x] Risk narrative enhancement — AI writes plain-English risk descriptions with business context
-- [ ] **Validate AI output with a real API key** — prompts are untested, output quality unknown
+### AI-Enhanced Scans — VALIDATED
+- [x] PII classification — 32 fields classified on joeeftekhari.com (email → directly-identifying, cookie_data → pseudonymous, game fields → non-personal). Fixed markdown code fence parse issue (LLMs wrap JSON in ``` despite instructions).
+- [x] Risk narrative enhancement — 4 risks enhanced with plain-English business context and concrete first actions
+- [x] Validated with real OpenAI API key — output quality is good, classifications are accurate
 - [ ] Context-aware CSP generation — AI fetches page, sees actual resources, generates precise policy
 - [ ] Remediation code generation — AI looks at actual codebase patterns and generates specific fixes
 
-### AI-Enhanced Outputs — CODE EXISTS, OUTPUT UNVALIDATED
-- [x] PR comment summarization — AI generates GitHub PR comment summarizing compliance posture
-- [x] Gap analysis — AI recommends top 3 highest-impact actions with effort estimates
+### AI-Enhanced Outputs — VALIDATED
+- [x] PR comment summarization — generates compliance score, critical/high risk highlights, actionable next step
+- [x] Gap analysis — 3 prioritized recommendations with effort estimates and framework control mappings
 - [x] AI report output at `.grc/ai-analysis.md`
 - [x] PR comment output at `.grc/pr-comment.md` for GitHub Action to post
-- [ ] **Run end-to-end with real API key and review actual output** — blocking task before relying on this layer
+- [x] End-to-end validated with real API key — all four enhancements produce useful, actionable output
 - [ ] Auto-fix PRs — AI generates remediation PRs for common issues
 - [ ] Auditor-friendly summaries — AI translates technical findings into compliance language
+- **Known limitation:** AI output currently lives in `.grc/` (gitignored) and the PR comment. Risk narratives and gap analysis are not visible on the dashboard — only the PR commenter and local `ai-analysis.md` consume them.
 
 ## Phase 5: Dashboard Build — DONE
 
@@ -473,7 +474,7 @@ These cut across all phases and should be addressed opportunistically.
 - [ ] CSP auto-generator only catches HTML-embedded CDN imports (Google Analytics) — misses CDN script tags (unpkg, jsdelivr, cdnjs), so output needs manual review
 
 ### Unvalidated Claims
-- [ ] AI layer has never been run with a real API key — Phase 4 prompts untested
+- [x] ~~AI layer has never been run with a real API key~~ — validated with OpenAI gpt-4o-mini, all 4 enhancements work (PR #19)
 - [ ] Open-source setup instructions have never been fork-tested from scratch
 - [ ] "Copy-paste ready" middleware claim overstated (CSP usually requires manual edits)
 - [ ] "Works on any Node/Python/Go repo" claim overstated (Node works, others are placeholder)
