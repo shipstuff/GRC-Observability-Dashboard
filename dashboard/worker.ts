@@ -10,6 +10,7 @@ type Bindings = {
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
+const BADGE_LABEL = "grc observability";
 
 // --- Types ---
 
@@ -82,6 +83,99 @@ async function appendHistory(kv: KVNamespace, repo: string, entry: HistoryEntry)
   await kv.put(key, JSON.stringify(existing.slice(-500)));
 }
 
+async function getManifestEntry(kv: KVNamespace, repo: string, branch?: string) {
+  const branchesToTry = branch ? [branch] : ["main", "master"];
+  for (const candidate of branchesToTry) {
+    const key = `manifest:${repo}:${candidate}`;
+    const entry = await kv.get(key, "json") as { manifest: Manifest; receivedAt: string; siteUrl?: string } | null;
+    if (entry) return entry;
+  }
+  if (!branch) {
+    // Repos that use a non-main/master default branch: scan keys scoped to
+    // THIS repo only. Using the full prefix keeps this O(branches-for-repo)
+    // instead of O(all-manifests-in-KV), which matters because /badge is a
+    // public endpoint hit frequently from README images — an unscoped fallback
+    // turns cache misses (typos, unknown repos) into expensive KV reads.
+    const scoped = await kv.list({ prefix: `manifest:${repo}:` });
+    if (scoped.keys.length === 0) return null;
+    // Prefer main/master if they somehow appear here (shouldn't — we already
+    // tried them above), then fall back to the first key. Fetch exactly one.
+    const preferred = scoped.keys.find(k => k.name.endsWith(":main") || k.name.endsWith(":master"))
+      ?? scoped.keys[0];
+    return await kv.get(preferred.name, "json") as { manifest: Manifest; receivedAt: string; siteUrl?: string } | null;
+  }
+  return null;
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function badgeSegmentWidth(text: string): number {
+  return Math.max(42, text.length * 7 + 18);
+}
+
+function renderBadge(label: string, message: string, color: string): string {
+  const labelWidth = badgeSegmentWidth(label);
+  const messageWidth = badgeSegmentWidth(message);
+  const totalWidth = labelWidth + messageWidth;
+  const labelTextX = Math.round(labelWidth / 2);
+  const messageTextX = labelWidth + Math.round(messageWidth / 2);
+  const safeLabel = escapeXml(label);
+  const safeMessage = escapeXml(message);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="20" role="img" aria-label="${safeLabel}: ${safeMessage}">
+  <title>${safeLabel}: ${safeMessage}</title>
+  <linearGradient id="smooth" x2="0" y2="100%">
+    <stop offset="0" stop-color="#fff" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="clip">
+    <rect width="${totalWidth}" height="20" rx="3" fill="#fff"/>
+  </clipPath>
+  <g clip-path="url(#clip)">
+    <rect width="${labelWidth}" height="20" fill="#555"/>
+    <rect x="${labelWidth}" width="${messageWidth}" height="20" fill="${color}"/>
+    <rect width="${totalWidth}" height="20" fill="url(#smooth)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+    <text x="${labelTextX}" y="15" fill="#010101" fill-opacity=".3">${safeLabel}</text>
+    <text x="${labelTextX}" y="14">${safeLabel}</text>
+    <text x="${messageTextX}" y="15" fill="#010101" fill-opacity=".3">${safeMessage}</text>
+    <text x="${messageTextX}" y="14">${safeMessage}</text>
+  </g>
+</svg>`;
+}
+
+function badgeState(summary: RepoSummary | null): { message: string; color: string } {
+  if (!summary) {
+    return { message: "not scanned", color: "#6e7781" };
+  }
+
+  if (summary.secretsDetected || summary.criticalVulns > 0 || summary.complianceScore < 50) {
+    return { message: `fail ${summary.complianceScore}%`, color: "#d1242f" };
+  }
+
+  const headerGap = summary.headersTotal > 0 && summary.headersPresent < summary.headersTotal;
+  if (summary.highVulns > 0 || !summary.httpsEnforced || headerGap || summary.complianceScore < 80) {
+    return { message: `warn ${summary.complianceScore}%`, color: "#bc4c00" };
+  }
+
+  return { message: `pass ${summary.complianceScore}%`, color: "#2da44e" };
+}
+
+function parseRepoQuery(repo: string | undefined): string | null {
+  if (!repo) return null;
+  const normalized = repo.trim().replace(/^\/+|\/+$/g, "");
+  if (!normalized || !normalized.includes("/")) return null;
+  return normalized;
+}
+
 // --- Scoring ---
 
 function calcNistScore(results: ReturnType<typeof evaluateFramework>): number {
@@ -142,6 +236,41 @@ function findByBranch(entries: { manifest: Manifest; receivedAt: string; siteUrl
 }
 
 // --- API ---
+
+app.get("/health", (c) => {
+  return c.json({
+    status: "ok",
+    service: "grc-observability-dashboard",
+    timestamp: new Date().toISOString(),
+    badgeEndpoint: "/badge?repo=owner/name",
+  });
+});
+
+app.get("/badge", async (c) => {
+  const repo = parseRepoQuery(c.req.query("repo"));
+  if (!repo) return c.json({ error: "Query param 'repo' must be 'owner/name'" }, 400);
+
+  const branch = c.req.query("branch") || undefined;
+  const entry = await getManifestEntry(c.env.GRC_KV, repo, branch);
+  const summary = entry ? summarize(entry.manifest, entry.siteUrl) : null;
+  const { message, color } = badgeState(summary);
+
+  c.header("Content-Type", "image/svg+xml; charset=utf-8");
+  c.header("Cache-Control", "public, max-age=300");
+  return c.body(renderBadge(BADGE_LABEL, message, color));
+});
+
+app.get("/badge/:owner/:name", async (c) => {
+  const repo = `${c.req.param("owner")}/${c.req.param("name")}`;
+  const branch = c.req.query("branch") || undefined;
+  const entry = await getManifestEntry(c.env.GRC_KV, repo, branch);
+  const summary = entry ? summarize(entry.manifest, entry.siteUrl) : null;
+  const { message, color } = badgeState(summary);
+
+  c.header("Content-Type", "image/svg+xml; charset=utf-8");
+  c.header("Cache-Control", "public, max-age=300");
+  return c.body(renderBadge(BADGE_LABEL, message, color));
+});
 
 app.post("/api/report", async (c) => {
   try {
