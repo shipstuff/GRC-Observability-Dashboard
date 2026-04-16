@@ -55,6 +55,14 @@ export interface ArtifactStatus {
   incidentResponsePlan: "present" | "missing";
 }
 
+export interface AISystem {
+  provider: string;
+  sdk: string;
+  location: string;
+  category: "inference" | "training" | "vector-db" | "framework" | "self-hosted";
+  dataFlows: string[];
+}
+
 export interface PolicyUrlsManifest {
   privacyPolicy?: string;
   termsOfService?: string;
@@ -76,6 +84,7 @@ export interface Manifest {
   secretsScan: SecretsFindings;
   artifacts: ArtifactStatus;
   accessControls: AccessControls;
+  aiSystems: AISystem[];
   policyUrls?: PolicyUrlsManifest;
 }
 
