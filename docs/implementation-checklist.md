@@ -351,15 +351,17 @@ Recommended build order:
 **Design principle: no new action runtime.** We don't want to bloat the action's scan time. Integration work happens via (a) exports the user downloads or (b) on-demand dashboard actions. Automatic push-on-scan is deliberately deferred.
 
 ### Sub-phase A: Standard export formats — MVP
-- [ ] **SARIF export** for security findings — compatible with GitHub code scanning so findings appear in the PR Security tab natively (low effort, high visibility)
+- [ ] **SARIF-format output** for security findings (format compatibility only — producing a conformant SARIF file; this does NOT by itself populate GitHub's PR Security tab)
+- [ ] **SARIF upload step** in the action — use `github/codeql-action/upload-sarif@v3` (or POST to `/repos/:owner/:repo/code-scanning/sarifs`) so findings actually appear in GitHub's code scanning UI. Requires `security-events: write` in the consuming workflow's permissions block. Must be documented alongside the existing `contents: write` requirement.
 - [ ] **OSCAL export** (NIST SP 800-53 / Open Security Controls Assessment Language) — JSON/YAML/XML standard that Drata, Hyperproof, and an increasing number of GRC platforms can ingest
 - [ ] **Enhanced JSON export** — structured scan data with all findings, for custom ingestion or scripting
 - [ ] **CSV export** — flat finding list for spreadsheet ingestion (audit workpapers, remediation tracking)
 - [ ] **Export dropdown on each repo card** — choose format, download file
 - [ ] **Org-level export** — aggregated across all scanned repos in one bundle
 - [ ] Exports land in `.grc/exports/` when run via CLI; in-browser download from the dashboard
-- [ ] No credentials required, no vendor lock-in, works for teams without a GRC platform at all
-- **GRC concept:** Structured evidence formats; OSCAL as the emerging interchange standard
+- [ ] No credentials required for downloads; SARIF upload uses `GITHUB_TOKEN` only (no vendor keys)
+- **GRC concept:** Structured evidence formats; OSCAL as the emerging interchange standard; SARIF as the de-facto security findings format
+- **Known gotcha:** SARIF-on-disk is not the same as findings in the Security tab. Producing the file and uploading it are two separate pieces of work — ship both.
 
 ### Sub-phase B: Auditor evidence packaging (was Phase 5 Tier 3)
 - [ ] Generate PDF/ZIP evidence package per framework
