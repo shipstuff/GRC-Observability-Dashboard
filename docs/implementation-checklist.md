@@ -170,9 +170,9 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] Check Production verifies configured policy URLs (see Phase 7 policy_urls support)
 
 ### Tier 3: Auditor Evidence Export
-- [ ] Generate evidence packages per framework (PDF/ZIP)
 - [ ] AI-powered gap analysis in dashboard (depends on Phase 4 validation)
 - [ ] Auto-fix PR generation (depends on Phase 4 validation)
+- [ ] Evidence packages per framework (PDF/ZIP) — moved to Phase 9 Sub-phase B
 
 ## Phase 6: Open Source Readiness — DONE
 
@@ -344,7 +344,82 @@ Recommended build order:
 - User hasn't fully mastered traditional GRC fundamentals yet — adding AI compliance may dilute learning
 - Our own scanner becomes subject to the rules it enforces (good demo opportunity, real obligation)
 
-## Phase 9: Future Enhancements
+## Phase 9: GRC Platform Integration — PROPOSED
+
+**Why this direction:** Position the scanner as an evidence source that plugs into existing GRC platforms (Drata, Vanta, Hyperproof) rather than trying to replace them. Our tool is strongest at technical control evidence from code; GRC platforms are strongest at program management, audit workflow, policy lifecycles, and vendor risk. Meeting them at the boundary — structured exports and optional integrations — lets the work flow both directions without competing for scope.
+
+**Design principle: no new action runtime.** We don't want to bloat the action's scan time. Integration work happens via (a) exports the user downloads or (b) on-demand dashboard actions. Automatic push-on-scan is deliberately deferred.
+
+### Sub-phase A: Standard export formats — MVP
+- [ ] **SARIF export** for security findings — compatible with GitHub code scanning so findings appear in the PR Security tab natively (low effort, high visibility)
+- [ ] **OSCAL export** (NIST SP 800-53 / Open Security Controls Assessment Language) — JSON/YAML/XML standard that Drata, Hyperproof, and an increasing number of GRC platforms can ingest
+- [ ] **Enhanced JSON export** — structured scan data with all findings, for custom ingestion or scripting
+- [ ] **CSV export** — flat finding list for spreadsheet ingestion (audit workpapers, remediation tracking)
+- [ ] **Export dropdown on each repo card** — choose format, download file
+- [ ] **Org-level export** — aggregated across all scanned repos in one bundle
+- [ ] Exports land in `.grc/exports/` when run via CLI; in-browser download from the dashboard
+- [ ] No credentials required, no vendor lock-in, works for teams without a GRC platform at all
+- **GRC concept:** Structured evidence formats; OSCAL as the emerging interchange standard
+
+### Sub-phase B: Auditor evidence packaging (was Phase 5 Tier 3)
+- [ ] Generate PDF/ZIP evidence package per framework
+- [ ] Date-stamped snapshots (auditors need stable dated evidence, not "re-run the scan")
+- [ ] Control-by-control walkthrough format
+- [ ] Sign-off metadata (control owner, last reviewed, evidence source)
+- [ ] Download from dashboard via the export dropdown
+- **GRC concept:** Audit evidence packaging, control attestation artifacts
+
+### Sub-phase C: On-demand dashboard publishing — FUTURE
+- [ ] Per-repo "Publish to Drata" / "Publish to Vanta" / "Publish to Hyperproof" buttons on the dashboard
+- [ ] API credentials stored **in the dashboard's environment/KV** (one config for the whole deployment, not per-consuming-repo)
+- [ ] Confirmation dialog showing exactly what will be pushed before submission
+- [ ] Retry-friendly on failure, logs per-push history
+- [ ] Control ID mapping layer: our NIST CSF IDs → vendor-specific control IDs (hardcoded mappings shipped, user override via config)
+- **GRC concept:** Evidence submission workflows, auditor platform integration
+
+### Sub-phase D: Direct vendor API integrations — FUTURE
+- [ ] Drata API integration (evidence upload against specific controls)
+- [ ] Vanta API integration (custom integration via their platform)
+- [ ] Hyperproof API integration (evidence upload + control mapping)
+- [ ] Each integration is optional, opt-in per dashboard deployment
+- **GRC concept:** Programmatic evidence submission, API integration patterns
+
+### Sub-phase E: Auto-push on scan — FUTURE (deferred)
+- [ ] Opt-in via `.grc/config.yml` in the consuming repo
+- [ ] Triggers on merge to main (not PRs) by default
+- [ ] Credentials live in consuming repo secrets (per-repo, not central)
+- [ ] Debounce: only push if meaningful change since last submission
+- [ ] **Deliberately deferred** — adds runtime to the action and requires API keys in every consuming repo's secrets. Sub-phases A-D cover most use cases without this complexity.
+- **GRC concept:** Continuous compliance automation, evidence freshness tradeoffs
+
+### Control ID Mapping
+- [ ] Ship curated mappings for major platforms (NIST CSF → Drata, NIST CSF → Vanta, etc.)
+- [ ] User override via `.grc/config.yml` for custom control schemes
+- [ ] Document mapping assumptions — where does our reading differ from the platform's?
+
+### API Credential Storage (flagged for future)
+- When we implement Sub-phases C-E, credentials will go in:
+  - **Sub-phase C (dashboard button)**: Cloudflare Worker secrets on the dashboard deployment (one set per forked/deployed dashboard)
+  - **Sub-phase D (vendor APIs)**: same as C
+  - **Sub-phase E (auto-push)**: per-consuming-repo GitHub secrets
+- Dashboard deployers will set e.g. `DRATA_API_KEY` via `wrangler secret put`
+- No credentials stored in manifest.yml, config.yml, or any committed file
+
+### Recommended Sequencing
+1. **Sub-phase A** first — exports are the MVP. Useful alone, no credentials, no vendor lock-in
+2. **Sub-phase B** (evidence packaging) — builds on A, adds PDF/ZIP formatting
+3. **Sub-phase C** (button) — only after there's demand for "I don't want to download and re-upload"
+4. **Sub-phase D** (vendor APIs) — only ship integrations the community actually asks for
+5. **Sub-phase E** (auto-push) — deferred indefinitely unless there's clear need
+
+### Honest Tradeoffs
+- Export-only keeps us out of the "GRC platform" competitive space and positions us as a source. That's the right move given current scope.
+- We're betting on OSCAL adoption continuing. If the industry doesn't converge, our OSCAL work is wasted. Mitigate by also shipping JSON/CSV which are format-agnostic.
+- Vendor integrations (Sub-phases C-D) are maintenance burden. Each one commits us to tracking their API changes.
+
+---
+
+## Phase 10: Future Enhancements
 
 ### GitHub App (natural evolution from the action)
 - [ ] Build GitHub App for zero-config install (no workflow file per repo)
@@ -363,12 +438,12 @@ Recommended build order:
 
 ### Dashboard
 - [ ] Authentication on API endpoints (API key validation on POST)
-- [ ] Auditor evidence export (PDF/ZIP per framework)
 - [ ] Accepted-risk workflow (declare risks as acknowledged in `.grc/config.yml`, dashboard respects and shows as "accepted")
 - [ ] Multi-tenant / multi-org support
 - [ ] Tests — none currently exist
+- Note: auditor evidence export moved to Phase 9 Sub-phase B
 
-## Phase 10: Blog Content
+## Phase 11: Blog Content
 
 - [x] Security headers deep dive (published)
 - [x] Dashboard v2 build writeup — covers Phases 5-7 (draft on desktop, extended through Phase 7 work)
@@ -378,6 +453,7 @@ Recommended build order:
 - [ ] Lessons from self-auditing your own infrastructure
 - [ ] "Vulnerability Management for a One-Person Operation" — CVE scoring, exploitability vs severity, practical vuln management policy
 - [ ] AI Compliance writeup (after Phase 8 ships)
+- [ ] "Ship GRC evidence to Drata without touching a spreadsheet" — after Phase 9 ships
 
 ## Known Issues (Project-Wide)
 
