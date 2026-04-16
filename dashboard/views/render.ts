@@ -178,10 +178,62 @@ function layout(title: string, content: string, orgName: string = ""): string {
     .branch-diff.up { color: #39ff14; }
     .branch-diff.down { color: #ff0040; }
 
-    .trend-chart { font-size: 8px; line-height: 1.4; white-space: pre; color: #666; margin: 10px 0; overflow-x: auto; }
-    .trend-chart .bar { color: #39ff14; }
-    .trend-chart .bar-warn { color: #ffff00; }
-    .trend-chart .bar-fail { color: #ff0040; }
+    .trend-chart { margin: 8px 0 16px; }
+    .trend-chart svg { width: 100%; height: auto; display: block; }
+    .trend-chart .grid-line { stroke: #1a1a1a; stroke-width: 1; }
+    .trend-chart .axis-line { stroke: #333; stroke-width: 1; }
+    .trend-chart .axis-label { fill: #666; font-size: 6px; font-family: 'Press Start 2P', monospace; }
+    .trend-chart .x-label { fill: #888; font-size: 6px; font-family: 'Press Start 2P', monospace; }
+    .trend-chart .data-line { fill: none; stroke-width: 1.5; }
+    .trend-chart .data-dot { stroke-width: 1; }
+    .trend-chart .line-compliance { stroke: #39ff14; filter: drop-shadow(0 0 2px #39ff14); }
+    .trend-chart .fill-compliance { fill: #39ff14; }
+    .trend-chart .line-nist { stroke: #00ffff; filter: drop-shadow(0 0 2px #00ffff); }
+    .trend-chart .fill-nist { fill: #00ffff; }
+    .trend-chart .line-vulns { stroke: #ff0040; filter: drop-shadow(0 0 2px #ff0040); }
+    .trend-chart .fill-vulns { fill: #ff0040; }
+    .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+    .legend-dot.line-compliance { background: #39ff14; box-shadow: 0 0 4px #39ff14; }
+    .legend-dot.line-nist { background: #00ffff; box-shadow: 0 0 4px #00ffff; }
+    .legend-dot.line-vulns { background: #ff0040; box-shadow: 0 0 4px #ff0040; }
+    .trend-wrap { position: relative; }
+    .trend-tooltip {
+      position: absolute;
+      display: none;
+      grid-template-columns: auto 1fr;
+      gap: 3px 10px;
+      background: #0a0a0a;
+      border: 1px solid #39ff14;
+      padding: 8px 10px;
+      font-size: 8px;
+      color: #aaa;
+      pointer-events: none;
+      z-index: 10;
+      box-shadow: 0 0 12px rgba(57,255,20,0.3);
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+    .trend-tooltip.visible { display: grid; }
+    .trend-tooltip::after {
+      content: "";
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%) rotate(45deg);
+      width: 8px; height: 8px;
+      background: #0a0a0a;
+      border-right: 1px solid #39ff14;
+      border-bottom: 1px solid #39ff14;
+    }
+    .trend-tooltip .tt-key { color: #666; letter-spacing: 1px; }
+    .trend-tooltip .tt-val { color: #ccc; }
+    .trend-tooltip .tt-date { color: #ff00ff; text-shadow: 0 0 4px #ff00ff; }
+    .trend-tooltip .tt-commit { color: #ffff00; }
+    .trend-tooltip .tt-c { color: #39ff14; }
+    .trend-tooltip .tt-n { color: #00ffff; }
+    .trend-tooltip .tt-v { color: #ff0040; }
+    .trend-chart .trend-hover-zone { fill: transparent; cursor: crosshair; }
+    .trend-chart .trend-hover-zone:hover, .trend-chart .trend-hover-zone.active { fill: rgba(255,255,255,0.04); }
 
     .empty { text-align: center; padding: 60px 20px; }
     .empty h2 { font-size: 12px; color: #39ff14; margin-bottom: 12px; text-shadow: 0 0 10px #39ff14; }
@@ -249,6 +301,31 @@ function layout(title: string, content: string, orgName: string = ""): string {
       btn.classList.add('active');
       btn.setAttribute('data-url', url);
       htmx.ajax('GET', url + branchParam, {target: '#panel-' + repoId, swap: 'innerHTML'});
+    }
+    function showTrendTip(chartId, date, commit, c, n, v, evt) {
+      var tip = document.getElementById('tt-' + chartId);
+      if (!tip) return;
+      tip.querySelector('.tt-date').textContent = date;
+      tip.querySelector('.tt-commit').textContent = commit;
+      tip.querySelector('.tt-c').textContent = c + '%';
+      tip.querySelector('.tt-n').textContent = n + '%';
+      tip.querySelector('.tt-v').textContent = v;
+      // Position tooltip above the hovered column.
+      var zone = evt.currentTarget;
+      var wrap = document.getElementById('wrap-' + chartId);
+      if (!wrap || !zone) return;
+      var zoneRect = zone.getBoundingClientRect();
+      var wrapRect = wrap.getBoundingClientRect();
+      var centerX = zoneRect.left + zoneRect.width / 2 - wrapRect.left;
+      tip.style.left = centerX + 'px';
+      tip.style.top = (zoneRect.top - wrapRect.top - tip.offsetHeight - 10) + 'px';
+      tip.classList.add('visible');
+      // Now that it's visible and measurable, reposition with real height.
+      tip.style.top = (zoneRect.top - wrapRect.top - tip.offsetHeight - 10) + 'px';
+    }
+    function hideTrendTip(chartId) {
+      var tip = document.getElementById('tt-' + chartId);
+      if (tip) tip.classList.remove('visible');
     }
     function checkProduction(owner, name, btn) {
       btn.disabled = true;
@@ -499,9 +576,106 @@ export function renderBranchComparison(summaries: RepoSummary[]): string {
   return html;
 }
 
+interface Series {
+  values: number[];
+  metric: "compliance" | "nist" | "vulns";
+  axis: "left" | "right";
+}
+
+interface HoverDatum { date: string; commit: string; c: number; n: number; v: number }
+
+function renderSvgChart(
+  series: Series[],
+  labels: string[],
+  opts: { leftMax: number; rightMax: number; yTicks?: number; leftUnit?: string; rightUnit?: string; chartId?: string; hoverData?: HoverDatum[] },
+): string {
+  const { leftMax, rightMax } = opts;
+  const yTicks = opts.yTicks ?? 4;
+  const leftUnit = opts.leftUnit ?? "";
+  const rightUnit = opts.rightUnit ?? "";
+  const n = labels.length;
+  if (n === 0) return "";
+
+  const vbW = 420;
+  const vbH = 180;
+  const padL = 36;
+  const padR = 32;
+  const padT = 12;
+  const padB = 28;
+  const chartW = vbW - padL - padR;
+  const chartH = vbH - padT - padB;
+
+  const toX = (i: number): number => {
+    if (n === 1) return padL + chartW / 2;
+    return padL + (i / (n - 1)) * chartW;
+  };
+  const toY = (v: number, max: number): number => {
+    const clamped = Math.max(0, Math.min(max, v));
+    return padT + chartH - (clamped / max) * chartH;
+  };
+
+  // Grid lines + left axis labels.
+  let gridHtml = "";
+  for (let i = 0; i <= yTicks; i++) {
+    const y = padT + (i / yTicks) * chartH;
+    const leftVal = Math.round(leftMax - (i / yTicks) * leftMax);
+    const rightVal = Math.round(rightMax - (i / yTicks) * rightMax);
+    gridHtml += `<line class="grid-line" x1="${padL}" y1="${y}" x2="${vbW - padR}" y2="${y}"/>`;
+    gridHtml += `<text class="axis-label" x="${padL - 4}" y="${y + 2}" text-anchor="end">${leftVal}${leftUnit}</text>`;
+    gridHtml += `<text class="axis-label fill-vulns" x="${vbW - padR + 4}" y="${y + 2}" text-anchor="start">${rightVal}${rightUnit}</text>`;
+  }
+
+  // Axes.
+  const axesHtml =
+    `<line class="axis-line" x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + chartH}"/>` +
+    `<line class="axis-line" x1="${vbW - padR}" y1="${padT}" x2="${vbW - padR}" y2="${padT + chartH}"/>` +
+    `<line class="axis-line" x1="${padL}" y1="${padT + chartH}" x2="${vbW - padR}" y2="${padT + chartH}"/>`;
+
+  // Data polylines + dots for each series.
+  let seriesHtml = "";
+  for (const s of series) {
+    const max = s.axis === "left" ? leftMax : rightMax;
+    const points = s.values.map((v, i) => `${toX(i).toFixed(1)},${toY(v, max).toFixed(1)}`).join(" ");
+    if (s.values.length > 1) {
+      seriesHtml += `<polyline class="data-line line-${s.metric}" points="${points}"/>`;
+    }
+    for (let i = 0; i < s.values.length; i++) {
+      const cx = toX(i).toFixed(1);
+      const cy = toY(s.values[i], max).toFixed(1);
+      seriesHtml += `<circle class="data-dot fill-${s.metric}" cx="${cx}" cy="${cy}" r="2"/>`;
+    }
+  }
+
+  // X-axis labels: first, middle, last.
+  const xIdxs = n >= 3 ? [0, Math.floor((n - 1) / 2), n - 1] : n === 2 ? [0, 1] : [0];
+  let xLabelHtml = "";
+  for (const i of xIdxs) {
+    const x = toX(i).toFixed(1);
+    const y = padT + chartH + 12;
+    const anchor = i === 0 ? "start" : i === n - 1 ? "end" : "middle";
+    xLabelHtml += `<text class="x-label" x="${x}" y="${y}" text-anchor="${anchor}">${esc(labels[i])}</text>`;
+  }
+
+  // Invisible hover zones for each x position — show tooltip on hover.
+  let hoverHtml = "";
+  if (opts.hoverData && opts.chartId) {
+    const zoneW = n > 1 ? chartW / (n - 1) : chartW;
+    for (let i = 0; i < n; i++) {
+      const centerX = toX(i);
+      const x = Math.max(padL, centerX - zoneW / 2);
+      const w = Math.min(vbW - padR - x, zoneW);
+      const d = opts.hoverData[i];
+      hoverHtml += `<rect class="trend-hover-zone" x="${x.toFixed(1)}" y="${padT}" width="${w.toFixed(1)}" height="${chartH}" data-commit="${esc(d.commit)}" onmouseover="showTrendTip('${opts.chartId}', '${esc(d.date)}', '${esc(d.commit)}', ${d.c}, ${d.n}, ${d.v}, event)" onmouseout="hideTrendTip('${opts.chartId}')"/>`;
+    }
+  }
+
+  const idAttr = opts.chartId ? ` id="chart-${opts.chartId}"` : "";
+  return `<svg${idAttr} viewBox="0 0 ${vbW} ${vbH}" preserveAspectRatio="xMidYMid meet">${gridHtml}${axesHtml}${seriesHtml}${hoverHtml}${xLabelHtml}</svg>`;
+}
+
 export function renderTrendChart(history: HistoryEntry[], repo: string, branch: string): string {
   let html = `<div class="detail">`;
-  html += `<h3>COMPLIANCE TREND // ${esc(repo)} // ${esc(branch)}</h3>`;
+  html += `<h3>TRENDS // ${esc(repo)} // ${esc(branch)}</h3>`;
 
   if (history.length === 0) {
     html += `<p style="color:#666;font-size:8px;padding:16px 0;">No history for this branch yet.</p></div>`;
@@ -509,36 +683,65 @@ export function renderTrendChart(history: HistoryEntry[], repo: string, branch: 
   }
 
   const recent = history.slice(-20);
-  const barWidth = 25;
+  const labels = recent.map(e => new Date(e.scanDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+  const latest = recent[recent.length - 1];
+  const first = recent[0];
 
-  html += `<div class="trend-chart"><span style="color:#ff00ff">SCORE</span>\n`;
-  for (const entry of recent) {
-    const date = new Date(entry.scanDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const filled = Math.round((entry.complianceScore / 100) * barWidth);
-    const bar = "\u2588".repeat(filled) + "\u2591".repeat(barWidth - filled);
-    const cls = entry.complianceScore >= 80 ? "bar" : entry.complianceScore >= 50 ? "bar-warn" : "bar-fail";
-    html += `${date.padStart(8)} <span class="${cls}">${bar}</span> ${entry.complianceScore}%  ${entry.commit}\n`;
-  }
+  const arrowPct = (d: number) => d > 0 ? `<span style="color:#39ff14">+${d}%</span>` : d < 0 ? `<span style="color:#ff0040">${d}%</span>` : `<span style="color:#888">=</span>`;
+  const arrowCount = (d: number) => d > 0 ? `<span style="color:#ff0040">+${d}</span>` : d < 0 ? `<span style="color:#39ff14">${d}</span>` : `<span style="color:#888">=</span>`;
+
+  const complianceDelta = latest.complianceScore - first.complianceScore;
+  const nistDelta = latest.nistScore - first.nistScore;
+  const vulnsNow = latest.criticalVulns + latest.highVulns;
+  const vulnsFirst = first.criticalVulns + first.highVulns;
+  const vulnDelta = vulnsNow - vulnsFirst;
+
+  // Stats row
+  html += `<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:8px;margin-bottom:8px;">
+    <span><span class="legend-dot line-compliance"></span> COMPLIANCE <span style="color:#39ff14">${latest.complianceScore}%</span> ${arrowPct(complianceDelta)}</span>
+    <span><span class="legend-dot line-nist"></span> NIST <span style="color:#00ffff">${latest.nistScore}%</span> ${arrowPct(nistDelta)}</span>
+    <span><span class="legend-dot line-vulns"></span> VULNS <span style="color:#ff0040">${vulnsNow}</span> ${arrowCount(vulnDelta)}</span>
+  </div>`;
+
+  const vulnValues = recent.map(e => e.criticalVulns + e.highVulns);
+  const maxVulns = Math.max(5, ...vulnValues);
+
+  const series: Series[] = [
+    { values: recent.map(e => e.complianceScore), metric: "compliance", axis: "left" },
+    { values: recent.map(e => e.nistScore), metric: "nist", axis: "left" },
+    { values: vulnValues, metric: "vulns", axis: "right" },
+  ];
+
+  const chartId = (repo + "-" + branch).replace(/[^a-zA-Z0-9]/g, "-");
+  const hoverData: HoverDatum[] = recent.map(e => ({
+    date: new Date(e.scanDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+    commit: e.commit,
+    c: e.complianceScore,
+    n: e.nistScore,
+    v: e.criticalVulns + e.highVulns,
+  }));
+
+  // Chart wrapper is relative so the absolute tooltip positions above the hovered column.
+  html += `<div class="trend-wrap" id="wrap-${chartId}">
+    <div class="trend-tooltip" id="tt-${chartId}">
+      <span class="tt-key">DATE</span><span class="tt-val tt-date"></span>
+      <span class="tt-key">COMMIT</span><span class="tt-val tt-commit"></span>
+      <span class="tt-key">COMPLIANCE</span><span class="tt-val tt-c"></span>
+      <span class="tt-key">NIST</span><span class="tt-val tt-n"></span>
+      <span class="tt-key">VULNS</span><span class="tt-val tt-v"></span>
+    </div>
+    <div class="trend-chart">${renderSvgChart(series, labels, {
+      leftMax: 100,
+      rightMax: maxVulns,
+      yTicks: 4,
+      leftUnit: "%",
+      chartId,
+      hoverData,
+    })}</div>
+  </div>`;
+
+  html += `<div style="font-size:7px;color:#666;margin-top:6px;letter-spacing:1px;">LEFT AXIS: % COMPLIANCE // <span style="color:#ff0040">RIGHT AXIS: VULN COUNT</span> // HOVER TO INSPECT</div>`;
+
   html += `</div>`;
-
-  html += `<div class="trend-chart"><span style="color:#ff00ff">NIST</span>\n`;
-  for (const entry of recent) {
-    const date = new Date(entry.scanDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const filled = Math.round((entry.nistScore / 100) * barWidth);
-    const bar = "\u2588".repeat(filled) + "\u2591".repeat(barWidth - filled);
-    const cls = entry.nistScore >= 80 ? "bar" : entry.nistScore >= 50 ? "bar-warn" : "bar-fail";
-    html += `${date.padStart(8)} <span class="${cls}">${bar}</span> ${entry.nistScore}%  ${entry.commit}\n`;
-  }
-  html += `</div>`;
-
-  html += `<h3>VULNERABILITY TREND</h3><div class="trend-chart"><span style="color:#ff00ff">VULNS</span>\n`;
-  for (const entry of recent) {
-    const date = new Date(entry.scanDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const total = entry.criticalVulns + entry.highVulns;
-    const bar = total > 0 ? "\u2588".repeat(Math.min(total * 3, barWidth)) : "\u2500";
-    const cls = total === 0 ? "bar" : total <= 2 ? "bar-warn" : "bar-fail";
-    html += `${date.padStart(8)} <span class="${cls}">${bar}</span> ${entry.criticalVulns}C ${entry.highVulns}H\n`;
-  }
-  html += `</div></div>`;
   return html;
 }
