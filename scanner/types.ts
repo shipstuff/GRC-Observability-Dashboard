@@ -55,6 +55,14 @@ export interface ArtifactStatus {
   incidentResponsePlan: "present" | "missing";
 }
 
+export interface PolicyUrlsManifest {
+  privacyPolicy?: string;
+  termsOfService?: string;
+  vulnerabilityDisclosure?: string;
+  incidentResponsePlan?: string;
+  securityTxt?: string;
+}
+
 export interface Manifest {
   repo: string;
   scanDate: string;
@@ -68,6 +76,7 @@ export interface Manifest {
   secretsScan: SecretsFindings;
   artifacts: ArtifactStatus;
   accessControls: AccessControls;
+  policyUrls?: PolicyUrlsManifest;
 }
 
 export interface ScanContext {

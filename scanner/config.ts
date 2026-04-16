@@ -30,6 +30,22 @@ export interface AIConfig {
   provider: AIProvider;
 }
 
+/**
+ * URLs (paths or full URLs) at which the user is serving each generated
+ * policy on their live site. Entirely optional — if unset, Check Production
+ * skips verification of that policy and reports "not configured" instead
+ * of a failure. This keeps the tool framework-agnostic: users pick whatever
+ * URL scheme their site uses (Express routes, Next.js pages, Hugo permalinks,
+ * /legal/* paths, etc.) and opt in per policy.
+ */
+export interface PolicyUrls {
+  privacyPolicy?: string;
+  termsOfService?: string;
+  vulnerabilityDisclosure?: string;
+  incidentResponsePlan?: string;
+  securityTxt?: string;
+}
+
 export interface SiteConfig {
   siteName: string;
   siteUrl: string;
@@ -40,6 +56,7 @@ export interface SiteConfig {
   jurisdiction: string[];
   preferredLanguages: string[];
   outputDir: string;
+  policyUrls: PolicyUrls;
   ai: AIConfig;
 }
 
@@ -53,8 +70,28 @@ const DEFAULTS: SiteConfig = {
   jurisdiction: ["gdpr", "ccpa"],
   preferredLanguages: ["en"],
   outputDir: "docs/policies",
+  policyUrls: {},
   ai: { enabled: false, provider: "anthropic" },
 };
+
+function sanitizePolicyUrls(raw: any): PolicyUrls {
+  if (!raw || typeof raw !== "object") return {};
+  const out: PolicyUrls = {};
+  const mapping: Array<[keyof PolicyUrls, string]> = [
+    ["privacyPolicy", "privacy_policy"],
+    ["termsOfService", "terms_of_service"],
+    ["vulnerabilityDisclosure", "vulnerability_disclosure"],
+    ["incidentResponsePlan", "incident_response_plan"],
+    ["securityTxt", "security_txt"],
+  ];
+  for (const [outKey, inKey] of mapping) {
+    const value = raw[inKey];
+    if (typeof value === "string" && value.trim().length > 0) {
+      out[outKey] = value.trim();
+    }
+  }
+  return out;
+}
 
 export async function loadConfig(repoPath: string): Promise<SiteConfig> {
   const configPath = join(repoPath, ".grc", "config.yml");
@@ -77,6 +114,7 @@ export async function loadConfig(repoPath: string): Promise<SiteConfig> {
     jurisdiction: raw.jurisdiction ?? DEFAULTS.jurisdiction,
     preferredLanguages: raw.preferred_languages ?? DEFAULTS.preferredLanguages,
     outputDir: sanitizeOutputDir(raw.output_dir, DEFAULTS.outputDir),
+    policyUrls: sanitizePolicyUrls(raw.policy_urls),
     ai: {
       enabled: raw.ai?.enabled ?? DEFAULTS.ai.enabled,
       provider: raw.ai?.provider ?? DEFAULTS.ai.provider,
