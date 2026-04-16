@@ -91,8 +91,18 @@ async function getManifestEntry(kv: KVNamespace, repo: string, branch?: string) 
     if (entry) return entry;
   }
   if (!branch) {
-    const manifests = await getManifests(kv);
-    return preferMain(manifests.filter(entry => entry.manifest.repo === repo));
+    // Repos that use a non-main/master default branch: scan keys scoped to
+    // THIS repo only. Using the full prefix keeps this O(branches-for-repo)
+    // instead of O(all-manifests-in-KV), which matters because /badge is a
+    // public endpoint hit frequently from README images — an unscoped fallback
+    // turns cache misses (typos, unknown repos) into expensive KV reads.
+    const scoped = await kv.list({ prefix: `manifest:${repo}:` });
+    if (scoped.keys.length === 0) return null;
+    // Prefer main/master if they somehow appear here (shouldn't — we already
+    // tried them above), then fall back to the first key. Fetch exactly one.
+    const preferred = scoped.keys.find(k => k.name.endsWith(":main") || k.name.endsWith(":master"))
+      ?? scoped.keys[0];
+    return await kv.get(preferred.name, "json") as { manifest: Manifest; receivedAt: string; siteUrl?: string } | null;
   }
   return null;
 }
