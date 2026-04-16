@@ -68,13 +68,16 @@ export async function scanAISystems(ctx: ScanContext): Promise<AISystem[]> {
   const systems: AISystem[] = [];
   const seen = new Set<string>();
 
-  // 1. Check package.json for known AI packages
-  const pkgPath = join(ctx.repoPath, "package.json");
-  if (await fileExists(pkgPath)) {
+  // 1. Check ALL package.json files for known AI packages (supports monorepos)
+  const pkgFiles = await walkFiles(ctx.repoPath, new Set([".json"]));
+  const packageJsons = pkgFiles.filter(f => f.endsWith("package.json"));
+
+  for (const pkgPath of packageJsons) {
     const content = await readFileContent(pkgPath);
     try {
       const pkg = JSON.parse(content);
       const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+      const rel = relativePath(ctx.repoPath, pkgPath);
 
       for (const [depName, _version] of Object.entries(allDeps)) {
         const known = KNOWN_AI_PACKAGES[depName];
@@ -83,7 +86,7 @@ export async function scanAISystems(ctx: ScanContext): Promise<AISystem[]> {
           systems.push({
             provider: known.provider,
             sdk: depName,
-            location: "package.json",
+            location: rel,
             category: known.category,
             dataFlows: [],
           });
@@ -117,6 +120,7 @@ export async function scanAISystems(ctx: ScanContext): Promise<AISystem[]> {
     "ctransformers": { provider: "CTransformers (self-hosted)", category: "self-hosted" },
   };
 
+  // Check requirements*.txt files
   for (const reqFile of ["requirements.txt", "requirements-dev.txt"]) {
     const reqPath = join(ctx.repoPath, reqFile);
     if (await fileExists(reqPath)) {
@@ -134,6 +138,28 @@ export async function scanAISystems(ctx: ScanContext): Promise<AISystem[]> {
             dataFlows: [],
           });
         }
+      }
+    }
+  }
+
+  // Check pyproject.toml (Poetry, PDM, uv, Hatch, etc.)
+  const pyprojectPath = join(ctx.repoPath, "pyproject.toml");
+  if (await fileExists(pyprojectPath)) {
+    const content = await readFileContent(pyprojectPath);
+    // Match dependency lines in [project.dependencies], [tool.poetry.dependencies], etc.
+    // TOML arrays look like: "openai>=1.0" or 'langchain = "^0.1"'
+    for (const [pkgName, known] of Object.entries(pyPackages)) {
+      // Match the package name at a word boundary in the TOML content
+      const pattern = new RegExp(`(?:^|[\\s"'=,])${pkgName.replace("-", "[-_]")}(?:[\\s"'=<>!~,\\[\\]]|$)`, "mi");
+      if (pattern.test(content) && !seen.has(known.provider)) {
+        seen.add(known.provider);
+        systems.push({
+          provider: known.provider,
+          sdk: pkgName,
+          location: "pyproject.toml",
+          category: known.category,
+          dataFlows: [],
+        });
       }
     }
   }
