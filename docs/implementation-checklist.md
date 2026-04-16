@@ -10,23 +10,24 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - [x] Create `.grc/config.yml` schema for static site info
 - [x] Generate a real privacy policy for joeeftekhari.com
 - [x] Add privacy policy status to manifest schema
+- [x] Deploy to the live site (handled by Phase 7 policy deployment flow — scanner commits to PR branch at `docs/policies/privacy-policy.md`)
 - **GRC concept:** Data mapping, lawful basis for processing, data subject rights
-- **Known limitation:** Generated but never deployed to the live site. See Phase 7.
 
 ### Item 2: Terms of Service — DONE
 - [x] Define ToS template structure
 - [x] Identify what terms are site-specific vs boilerplate
 - [x] Auto-detect services (game, AI tools, contact form) for Description of Service section
 - [x] Generate ToS for joeeftekhari.com
+- [x] Deploy to the live site (via Phase 7)
 - **GRC concept:** Legal agreements, liability limitation, acceptable use
-- **Known limitation:** Generated but never deployed. See Phase 7.
 
 ### Item 3: security.txt — DONE
 - [x] Generate /.well-known/security.txt following RFC 9116
 - [x] Scanner checks for its existence and validity
 - [x] Includes required fields (Contact, Expires) and recommended fields (Canonical, Policy, Preferred-Languages)
+- [x] `Expires` pinned to Jan 1 of next year for idempotency (prevents spurious commits)
+- [x] Deploy to the live site (via Phase 7 — scanner writes to `.well-known/security.txt` regardless of output_dir)
 - **GRC concept:** Vulnerability coordination, responsible disclosure standards
-- **Known limitation:** Generated but never deployed. See Phase 7.
 
 ### Item 4: Responsible Vulnerability Disclosure Page — DONE
 - [x] Generate disclosure policy with in-scope/out-of-scope sections
@@ -34,8 +35,8 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - [x] Out-of-scope lists third-party services with contact links
 - [x] Includes safe harbor provisions and response timelines
 - [x] Scanner checks for its existence
+- [x] Deploy to the live site (via Phase 7)
 - **GRC concept:** Coordinated vulnerability disclosure, safe harbor provisions
-- **Known limitation:** Generated but never deployed. See Phase 7.
 
 ## Phase 2: Technical Controls — DONE
 
@@ -46,16 +47,18 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - [x] CSP auto-generated based on detected resources (e.g., Google Analytics domains)
 - [x] Implemented headers on joeeftekhari.com (0/6 → 6/6)
 - **GRC concept:** Defense in depth, OWASP recommendations
-- **Known limitation:** CSP generator missed non-analytics CDNs (unpkg, jsdelivr, cdnjs). Manual fix was required. "Copy-paste ready" claim is overstated.
+- **Known limitation:** CSP generator only catches resources visible in HTML (Google Analytics) — CDN imports for external libs (unpkg, jsdelivr, cdnjs) aren't detected automatically. Manual CSP edits may be needed.
 
 ### Item 6: Access Controls — DONE
 - [x] Scanner detects admin/sensitive routes and checks for auth middleware
 - [x] Generates access controls report with remediation commands
-- [x] Scanner uses non-admin GitHub API (`GET /branches/main` with `protected: true/false`)
-- [x] Attempts detailed rules API as bonus, silently falls back if admin scope unavailable
-- [x] Enabled branch protection on joeeftekhari.com main
+- [x] Scanner uses GitHub **Rulesets API** (`GET /repos/:owner/:repo/rules/branches/main`) — works with standard `GITHUB_TOKEN` read scope, no admin needed
+- [x] Extracts required_approving_review_count from `pull_request` rule types (aggregates strictest across org + repo rulesets)
+- [x] Detects signed commits enforcement via `required_signatures` rule type
+- [x] Surfaces individual rule types (deletion, non_fast_forward, required_linear_history, etc.) in findings
+- [x] Handles empty rules array (explicit unprotected state) vs CLI unavailable (unknown state)
+- [x] Enabled branch protection on joeeftekhari.com main → now reports: 1 required review, signed commits not required (advisory)
 - **GRC concept:** Principle of least privilege, separation of duties
-- **Known limitation:** Without admin scope, we only get the boolean. Required reviews count and signed commits show as unknown. Full detail requires a GitHub App (see Phase 9).
 
 ### Item 7: HTTPS Enforcement & Certificate Management — DONE
 - [x] Verify HTTPS redirect is in place
@@ -164,6 +167,7 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] Static scan + live check separation (no 90s sleep race condition anymore)
 - [x] Merge-with-existing-data logic (static scans don't wipe out previous live check results)
 - [x] site_url tracking per repo (passed as query param when manifest is POSTed)
+- [x] Check Production verifies configured policy URLs (see Phase 7 policy_urls support)
 
 ### Tier 3: Auditor Evidence Export
 - [ ] Generate evidence packages per framework (PDF/ZIP)
@@ -197,32 +201,67 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [ ] How to add new scan rules
 - [ ] How to add new policy templates
 
-## Phase 7: Policy Deployment Flow — PROPOSED, NOT STARTED
+## Phase 7: Policy Deployment Flow — DONE
 
-**Why this is the immediate next step:** The scanner generates policies into `.grc/` (gitignored), so they never reach the live site. The artifact scanner then reports them as missing. This is the single largest correctness gap in the project.
+**The problem:** Scanner generated policies into `.grc/` (gitignored). Files never reached the repo, never got deployed, never got served. The artifact scanner then reported them as "missing" even though the scanner had just produced them. This was the biggest correctness gap in the project.
 
-### The Flow
-- [ ] Add `output_dir` to `.grc/config.yml` (default `docs/policies/`)
-- [ ] On PR scans, action compares generated policies to files in `output_dir`
-- [ ] If they differ, action commits the generated files to the PR's feature branch
-- [ ] `security.txt` specifically goes to `.well-known/security.txt` regardless of output_dir
-- [ ] Artifact scanner checks `output_dir` instead of guessing paths
-- [ ] On merge to main, no commits happen — policies merge along with the feature PR
+### The Flow — DONE
+- [x] Add `output_dir` to `.grc/config.yml` (default `docs/policies`)
+- [x] Scanner writes policy markdown files to `output_dir` (not `.grc/`)
+- [x] `security.txt` always goes to `.well-known/security.txt` (RFC 9116)
+- [x] Scanner writes the effective `outputDir` to `.grc/output-dir` so the action stages the right path (no YAML parsing in bash)
+- [x] Reports (risk assessment, NIST CSF, headers, access controls, AI analysis, PR comment) stay in `.grc/`
+- [x] On PR scans: action stages generated files, compares to repo state, commits only if changed
+- [x] Commits attributed to `grc-bot` for clarity in git history
+- [x] On merge to main: no commits happen — policies already merged via the original PR
+- [x] Graceful failure if `contents: write` not granted — warns, continues, scan + dashboard POST still run
+- [x] `output_dir` sanitization (empty string, absolute path, path escape) → falls back to default with warning
 
-### Required Changes
-- [ ] Consuming repo workflow needs `contents: write` permission (was `contents: read`)
-- [ ] Action uses "grc-bot" git identity for commits
-- [ ] Idempotency check: only commit if generated files differ from what's in the repo (prevents infinite re-trigger loop)
-- [ ] Update README to document the new permission and behavior
+### Required Changes in Consuming Repos — DONE (documented)
+- [x] Workflow permission `contents: write` (was `read`)
+- [x] Implemented on joeeftekhari.com (PR #37)
+- [x] README documents the permission change
 
-### Tradeoffs
-- Bot commits in user PRs may be surprising — make them clearly attributed
-- Attribution muddiness for auditors — git blame shows bot for policy content
-- Action now writes to user code, not just reads — some orgs restrict this
+### Idempotency Fixes — DONE
+- [x] Removed scan date and commit hash from policy body (git history already tracks this)
+- [x] security.txt `Expires` pinned to Jan 1 of next year (stable within calendar year)
+- [x] Three consecutive scans produce byte-identical output
+- [x] Action commits exactly once per real content change
 
-## Phase 8: AI Compliance Layer — PROPOSED, NOT STARTED
+### Manifest Accuracy Fix — DONE
+- [x] `scanArtifacts` moved out of the parallel scan block in `scan()`
+- [x] Now runs in `main()` AFTER policies are written to disk
+- [x] Manifest reflects the real filesystem state, not a pre-generation snapshot
+- [x] No more hardcoded `manifest.artifacts = "generated"` workaround
+- [x] Manifest written LAST so it captures everything the scanner just did
 
-**Why this direction:** The EU AI Act becomes enforceable August 2026 with fines up to €35M / 7% global turnover. The scanner already detects AI SDK usage via dependency scanning but does nothing AI-compliance-specific with those findings. This phase turns "security compliance scanner" into "security + AI compliance scanner."
+### policy_urls Config — DONE
+**Purpose:** Let users declare where they serve each policy on their live site. Framework-agnostic — Express routes, Next.js pages, Hugo permalinks, static files, custom paths, full external URLs all work.
+
+- [x] New optional `policy_urls` section in `.grc/config.yml`:
+  ```yaml
+  policy_urls:
+    privacy_policy: /privacy-policy
+    terms_of_service: /legal/terms
+    vulnerability_disclosure: https://vdp.example.com/
+    security_txt: /.well-known/security.txt
+  ```
+- [x] Scanner always emits `policyUrls` as object (empty `{}` when opted out, never `undefined`)
+- [x] Manifest gets `policyUrls` field so dashboard knows what to check
+- [x] Dashboard's Check Production reads `manifest.policyUrls` and verifies only configured URLs
+- [x] Three states per policy: `served` (2xx response), `unreachable` (configured but failed), `not-configured` (not in config)
+- [x] Artifact field NOT touched by Check Production — artifact describes repo state (scanner's domain), `policyServed` describes live state (response only). No conflation.
+- [x] Opt-out path: user removes `policy_urls` from config → worker clears stored URLs on next POST
+- [x] No defaults — zero URLs checked unless user explicitly configures them
+
+### Consuming Repo Work
+- [x] joeeftekhari.com workflow updated with `contents: write` permission
+- [x] joeeftekhari.com has `docs/policies/*.md` and `.well-known/security.txt` committed (via scanner on PR #38)
+- [ ] joeeftekhari.com does NOT yet serve policies at public URLs (Express server needs routes to serve markdown at pretty URLs). User closed attempt to add routes (PR #39) — will handle routing + `policy_urls` config themselves when ready.
+
+## Phase 8: AI Compliance Layer — NEXT UP
+
+**Why this direction:** The EU AI Act becomes enforceable August 2026 with fines up to €35M or 7% of global turnover. The scanner already detects AI SDK usage via dependency scanning but does nothing AI-compliance-specific with those findings. This phase turns "security compliance scanner" into "security + AI compliance scanner."
 
 **Our own meta-obligation:** The scanner uses Anthropic/OpenAI in its AI layer. That makes the dashboard itself an "AI system" under the EU AI Act. When we ship this, the scanner should scan itself and produce its own AI compliance documentation.
 
@@ -295,7 +334,7 @@ Recommended build order:
 1. **Sub-phase A** (detection) ships first — valuable alone
 2. **Sub-phase C** (framework) next — unlocks scoring
 3. **Sub-phase E** (dashboard) once there's data to display
-4. **Sub-phase D** (policies) once Phase 7 (policy deployment flow) is working
+4. **Sub-phase D** (policies) — reuses Phase 7 deployment flow
 5. **Sub-phase B** (risk classification) can be added incrementally — start with a basic classifier, refine over time
 
 ### Honest Concerns
@@ -311,7 +350,7 @@ Recommended build order:
 - [ ] Build GitHub App for zero-config install (no workflow file per repo)
 - [ ] App receives webhooks, clones repos, runs scans automatically
 - [ ] Auto-creates workflow + config files via PR on install (or makes files unnecessary entirely)
-- [ ] App credentials allow reading admin APIs (full branch protection rules, Dependabot alerts, code scanning alerts, secret scanning alerts, deploy keys)
+- [ ] App credentials allow reading admin APIs (Dependabot alerts, code scanning alerts, secret scanning alerts, deploy keys). Note: core branch protection data now comes via the Rulesets API without admin scope (resolved in Phase 2 Item 6).
 - [ ] Multi-org support
 
 ### Additional Scanners
@@ -320,6 +359,7 @@ Recommended build order:
 - [ ] Python dependency scanning (`requirements.txt`, `pyproject.toml`)
 - [ ] Go dependency scanning (`go.mod`)
 - [ ] Secrets scanner upgrade — integrate TruffleHog or Gitleaks for better coverage than our regex
+- [ ] Vulnerability management deep-dive: CVSS scoring, dev vs prod dep distinction, exploitability vs severity, accepted-risk tracking
 
 ### Dashboard
 - [ ] Authentication on API endpoints (API key validation on POST)
@@ -331,12 +371,13 @@ Recommended build order:
 ## Phase 10: Blog Content
 
 - [x] Security headers deep dive (published)
-- [x] Dashboard v2 build writeup (drafted, on desktop)
+- [x] Dashboard v2 build writeup — covers Phases 5-7 (draft on desktop, extended through Phase 7 work)
 - [ ] "How I Applied NIST CSF to a Personal Project"
 - [ ] "Risk Register for a Solo Developer"
 - [ ] Walk-throughs of policy templates created
 - [ ] Lessons from self-auditing your own infrastructure
 - [ ] "Vulnerability Management for a One-Person Operation" — CVE scoring, exploitability vs severity, practical vuln management policy
+- [ ] AI Compliance writeup (after Phase 8 ships)
 
 ## Known Issues (Project-Wide)
 
@@ -344,17 +385,19 @@ These cut across all phases and should be addressed opportunistically.
 
 ### Unfixed Technical Debt
 - [ ] joeeftekhari.com has 1 critical + 3 high CVEs we haven't addressed. We don't use our own tool's output.
+- [ ] joeeftekhari.com doesn't yet serve policies at public URLs — files exist in `docs/policies/` but no Express routes to serve them. Once routes exist, user will configure `policy_urls` and Check Production will verify them.
 - [ ] No tests exist anywhere in the project
 - [ ] No CI beyond deploy (no lint, no type-check)
 - [ ] Documentation in `docs/` has overlapping content across files
-- [ ] Deploy workflow uses fragile `sed` for placeholder injection
+- [ ] Deploy workflow uses `sed` for placeholder injection in wrangler.toml — works but is fragile
 - [ ] Monorepo support is poor (scans root only, no per-package awareness)
 - [ ] Python support is placeholder-only; Go/Ruby/Java/Rust essentially unsupported
+- [ ] CSP auto-generator only catches HTML-embedded CDN imports (Google Analytics) — misses CDN script tags (unpkg, jsdelivr, cdnjs), so output needs manual review
 
 ### Unvalidated Claims
-- [ ] AI layer has never been run with a real API key
+- [ ] AI layer has never been run with a real API key — Phase 4 prompts untested
 - [ ] Open-source setup instructions have never been fork-tested from scratch
-- [ ] "Copy-paste ready" middleware claim overstated (CSP required manual fix)
+- [ ] "Copy-paste ready" middleware claim overstated (CSP usually requires manual edits)
 - [ ] "Works on any Node/Python/Go repo" claim overstated (Node works, others are placeholder)
 
 ## Certification Pairing (recommended for entry-level GRC)
