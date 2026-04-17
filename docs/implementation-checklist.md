@@ -317,22 +317,23 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [ ] Policies ride the same deployment mechanism as Phase 7 (committed to PR branch at output_dir)
 - **GRC concept:** Required AI documentation under EU AI Act
 
-### Sub-phase E: Dashboard Views
-- [ ] New "AI COMPLIANCE" tab per repo
-  - Table of detected AI systems: provider, location, risk tier, data shared
-  - EU AI Act obligations for this repo
-  - Compliance score (same HP-bar pattern)
-  - Gaps with evidence
-- [ ] New top-level "AI SYSTEMS INVENTORY" view — aggregated across all repos in the dashboard
+### Sub-phase E: Dashboard Views — IN PROGRESS
+- [x] New "AI" tab per repo with:
+  - [x] Table of detected AI systems: provider, SDK, category (color-coded), location
+  - [x] Risk Tier column (shows TBD until Sub-phase B adds classification)
+  - [x] Data Flows section (renders when correlation is populated — currently deferred)
+  - [x] EU AI Act Compliance placeholder (populated by Sub-phases B and C)
+  - [x] Empty state for repos with no AI detected
+  - [x] Route: `GET /ai/:owner/:name`, respects branch dropdown
+- [ ] EU AI Act obligations per repo (depends on Sub-phase C)
+- [ ] AI compliance score HP-bar (depends on Sub-phase C)
+- [ ] Gaps with evidence (depends on Sub-phase C)
+- [ ] New top-level "AI SYSTEMS INVENTORY" view — aggregated across all repos
   - Filterable by risk tier, provider, repo
   - Maps to Article 60 (EU database registration for high-risk AI)
   - Export format for auditor inventory requirements
 - [ ] Add "AI SCORE" card to the top stats row on main dashboard
-- [ ] New risk category `ai-compliance` in risk assessment with auto-generated risks like:
-  - "High-risk AI without FRIA"
-  - "User-facing AI without transparency notice"
-  - "AI usage without audit logging"
-  - "Prohibited AI practice detected" (critical)
+- [ ] New risk category `ai-compliance` in risk assessment with auto-generated risks
 
 ### Phased Rollout
 Recommended build order:
