@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { parse } from "yaml";
 import type { Manifest } from "../scanner/types.js";
 import { evaluateFramework } from "../scanner/generators/framework-report.js";
-import { renderDashboard, renderRepoDetail, renderNistView, renderBranchComparison, renderTrendChart } from "./views/render.js";
+import { renderDashboard, renderRepoDetail, renderNistView, renderBranchComparison, renderTrendChart, renderAIComplianceView } from "./views/render.js";
 
 type Bindings = {
   GRC_KV: KVNamespace;
@@ -534,6 +534,15 @@ app.get("/trends/:owner/:name", async (c) => {
   const branch = c.req.query("branch") || "main";
   const history = await getHistory(c.env.GRC_KV, repoName, branch);
   return c.html(renderTrendChart(history, repoName, branch));
+});
+
+app.get("/ai/:owner/:name", async (c) => {
+  const repoName = `${c.req.param("owner")}/${c.req.param("name")}`;
+  const branch = c.req.query("branch") || undefined;
+  const all = await getManifests(c.env.GRC_KV);
+  const entry = findByBranch(all.filter(m => m.manifest.repo === repoName), branch);
+  if (!entry) return c.html("<p>REPO NOT FOUND</p>", 404);
+  return c.html(renderAIComplianceView(entry.manifest));
 });
 
 export default app;
