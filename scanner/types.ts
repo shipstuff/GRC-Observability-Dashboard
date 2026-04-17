@@ -72,6 +72,32 @@ export interface AISystem {
   riskTier?: AIRiskTier;
   riskTierSource?: "heuristic" | "override";
   riskReasoning?: string;
+  /**
+   * Whether this system is placed on the EU market (triggers EU AI Act scope).
+   * Populated at scan time from the user's `eu_market` override when set, else
+   * inferred from the site's jurisdiction config (GDPR ⇒ EU market default).
+   */
+  euMarket?: boolean;
+}
+
+export type AIComplianceStatus = "pass" | "partial" | "fail" | "not-applicable";
+export type AIRmfPhase = "Govern" | "Map" | "Measure" | "Manage";
+
+/**
+ * Result of evaluating one EU AI Act article against a repo's manifest.
+ * Computed at scan time so the dashboard can display obligations without
+ * needing access to the site config (jurisdiction, overrides, etc.).
+ */
+export interface AIComplianceResult {
+  articleId: string;
+  article: number;
+  title: string;
+  phase: AIRmfPhase;
+  description: string;
+  status: AIComplianceStatus;
+  evidence: string;
+  nistAiRmf: string[];
+  iso42001: string[];
 }
 
 export interface PolicyUrlsManifest {

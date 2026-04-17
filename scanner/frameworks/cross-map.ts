@@ -42,3 +42,43 @@ export const CROSS_MAPPINGS: CrossMapping[] = [
 export function getCrossMapping(nistId: string): CrossMapping | undefined {
   return CROSS_MAPPINGS.find(m => m.nistId === nistId);
 }
+
+/**
+ * Cross-mapping from EU AI Act articles to NIST AI RMF (AI 100-1)
+ * subcategories and ISO/IEC 42001:2023 Annex A controls. Mappings are
+ * drawn from the published crosswalks maintained by NIST and ISO — they
+ * are illustrative ("this article's intent is tracked by these external
+ * controls"), not a formal equivalence.
+ */
+export interface AICrossMapping {
+  aiActId: string;
+  nistAiRmf: string[];
+  iso42001: string[];
+}
+
+export const AI_CROSS_MAPPINGS: AICrossMapping[] = [
+  // GOVERN
+  { aiActId: "ART-4",  nistAiRmf: ["GOVERN 2.2", "GOVERN 3.2"], iso42001: ["A.3.2", "A.4.2"] },
+  { aiActId: "ART-9",  nistAiRmf: ["GOVERN 1.4", "MAP 5.1", "MANAGE 1.3"], iso42001: ["A.5.2", "A.5.4", "A.6.1.2"] },
+  { aiActId: "ART-10", nistAiRmf: ["MAP 2.3", "MEASURE 2.2"], iso42001: ["A.7.2", "A.7.3", "A.7.4"] },
+
+  // MAP
+  { aiActId: "ART-5",  nistAiRmf: ["GOVERN 1.1", "MAP 1.1"],            iso42001: ["A.5.3", "A.6.1.2"] },
+  { aiActId: "ART-11", nistAiRmf: ["MAP 4.1", "MEASURE 1.3"],           iso42001: ["A.6.2.2", "A.6.2.3"] },
+
+  // MEASURE
+  { aiActId: "ART-12", nistAiRmf: ["MEASURE 2.8", "MANAGE 4.1"],        iso42001: ["A.6.2.8", "A.8.4"] },
+  { aiActId: "ART-15", nistAiRmf: ["MEASURE 2.5", "MEASURE 2.7"],       iso42001: ["A.6.2.4", "A.8.2"] },
+  { aiActId: "ART-27", nistAiRmf: ["MAP 5.2", "MEASURE 3.2"],           iso42001: ["A.5.5", "A.8.3"] },
+
+  // MANAGE
+  { aiActId: "ART-13", nistAiRmf: ["GOVERN 4.2", "MANAGE 3.1"],         iso42001: ["A.6.2.6", "A.8.1"] },
+  { aiActId: "ART-14", nistAiRmf: ["MEASURE 2.6", "MANAGE 2.1"],        iso42001: ["A.6.2.7", "A.9.2"] },
+  { aiActId: "ART-50", nistAiRmf: ["GOVERN 5.1", "MANAGE 3.2"],         iso42001: ["A.8.1", "A.9.3"] },
+  { aiActId: "ART-60", nistAiRmf: ["GOVERN 4.1"],                       iso42001: ["A.2.3"] },
+  { aiActId: "ART-73", nistAiRmf: ["MANAGE 4.3"],                       iso42001: ["A.8.5", "A.10.3"] },
+];
+
+export function getAICrossMapping(aiActId: string): AICrossMapping | undefined {
+  return AI_CROSS_MAPPINGS.find(m => m.aiActId === aiActId);
+}

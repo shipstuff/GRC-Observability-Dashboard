@@ -187,21 +187,23 @@ export function classifyAISystems(systems: AISystem[]): AISystem[] {
 
 export function applyAISystemOverrides(
   systems: AISystem[],
-  overrides: AISystemOverride[]
+  overrides: AISystemOverride[],
+  defaults: { euMarket: boolean } = { euMarket: false },
 ): AISystem[] {
-  if (!overrides || overrides.length === 0) return systems;
   return systems.map(s => {
     const match = overrides.find(o =>
       o.location === s.location && (!o.name || o.name === s.sdk)
     );
-    if (!match || !match.riskTier) return s;
-    const purposeClause = match.purpose ? ` Purpose: ${match.purpose}.` : "";
-    const marketClause = match.euMarket === true ? " EU market: yes." : match.euMarket === false ? " EU market: no." : "";
-    return {
-      ...s,
-      riskTier: match.riskTier,
-      riskTierSource: "override",
-      riskReasoning: `User override in .grc/config.yml.${purposeClause}${marketClause}`.trim(),
-    };
+    const euMarket = match?.euMarket ?? defaults.euMarket;
+    const next: AISystem = { ...s, euMarket };
+
+    if (match && match.riskTier) {
+      const purposeClause = match.purpose ? ` Purpose: ${match.purpose}.` : "";
+      const marketClause = match.euMarket === true ? " EU market: yes." : match.euMarket === false ? " EU market: no." : "";
+      next.riskTier = match.riskTier;
+      next.riskTierSource = "override";
+      next.riskReasoning = `User override in .grc/config.yml.${purposeClause}${marketClause}`.trim();
+    }
+    return next;
   });
 }

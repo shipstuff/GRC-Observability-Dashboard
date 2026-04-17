@@ -304,14 +304,17 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - **GRC concept:** AI risk tiering under EU AI Act Article 6, Annex III
 - **Known limitation:** Heuristic relies only on path-name keywords and category. A file named `screening` could be hiring OR spam screening — false positives expected. The override mechanism is the escape hatch.
 
-### Sub-phase C: EU AI Act Framework Mapping
-- [ ] New framework file `scanner/frameworks/eu-ai-act.ts` with articles mapped to scan findings
-- [ ] Cover Articles 4 (AI literacy), 5 (prohibited), 9 (risk management), 10 (data governance), 11 (technical docs), 12 (record keeping), 13 (transparency), 14 (human oversight), 15 (accuracy/robustness), 27 (FRIA), 50 (transparency to users), 60 (registration), 73 (incident notification)
-- [ ] Extend `frameworks/cross-map.ts` with NIST AI RMF (Govern/Map/Measure/Manage) cross-references
-- [ ] Extend cross-map with ISO/IEC 42001 equivalents
-- [ ] New report generator `generators/ai-compliance-report.md` following the same pattern as NIST CSF report
-- [ ] Add AI compliance score calculation to summary
+### Sub-phase C: EU AI Act Framework Mapping — DONE
+- [x] New framework file `scanner/frameworks/eu-ai-act.ts` with 13 articles as `AIFrameworkControl` entries and per-article `check(manifest)` / `evidence(manifest)` functions
+- [x] Covers Articles 4 (AI literacy), 5 (prohibited), 9 (risk management), 10 (data governance), 11 (technical docs), 12 (record keeping), 13 (transparency), 14 (human oversight), 15 (accuracy/robustness), 27 (FRIA), 50 (transparency to users), 60 (registration), 73 (incident notification)
+- [x] Articles grouped by NIST AI RMF phase (Govern/Map/Measure/Manage) to parallel NIST CSF's 5-function structure
+- [x] Extended `scanner/frameworks/cross-map.ts` with `AICrossMapping` + `AI_CROSS_MAPPINGS` — each article cross-referenced to NIST AI RMF subcategories and ISO/IEC 42001 Annex A controls
+- [x] New report generator `scanner/generators/ai-compliance-report.ts` written to `.grc/ai-compliance-report.md` on every scan (mirrors NIST CSF report layout)
+- [x] `evaluateEUAIAct(manifest)`, `calcAIComplianceScore(results)`, and `getAIPhaseScores(results)` exported for dashboard consumption
+- [x] Risk-tier-based applicability: high-risk-only articles (9/11/12/13/14/15/27/60/73) show `not-applicable` unless a `high`/`prohibited` system is detected. Article 5 always applies. Article 50 applies at `limited` and above. Articles 27 and 60 additionally require `eu_market: true`.
+- [x] `euMarket` field added to `AISystem`; propagated at classifier time from the `ai_systems:` override or defaulted from `jurisdiction` (GDPR → EU market by default)
 - **GRC concept:** Framework pluralism — same findings, multiple framework views
+- **Known limitation:** Many articles resolve to `partial` with instructional evidence because they are program-level obligations the scanner cannot auto-verify (AI literacy training, runtime logging, registration status). The tool surfaces the obligation; closing it is off-scanner.
 
 ### Sub-phase D: AI Policy Generation
 - [ ] `ai-usage-policy.hbs` — required by Article 50 for user-facing AI
@@ -329,9 +332,9 @@ Optional module — scanner works fully without AI. If an API key is provided, A
   - [x] EU AI Act Compliance placeholder (populated by Sub-phases B and C)
   - [x] Empty state for repos with no AI detected
   - [x] Route: `GET /ai/:owner/:name`, respects branch dropdown
-- [ ] EU AI Act obligations per repo (depends on Sub-phase C)
-- [ ] AI compliance score HP-bar (depends on Sub-phase C)
-- [ ] Gaps with evidence (depends on Sub-phase C)
+- [x] EU AI Act obligations per repo — per-article table on AI tab with phase, status, cross-map references
+- [x] AI compliance score HP-bar — overall EU score + per-phase HP-bars (Govern/Map/Measure/Manage) on AI tab
+- [x] Gaps with evidence — dedicated GAPS table under the AI tab for fail/partial articles
 - [ ] New top-level "AI SYSTEMS INVENTORY" view — aggregated across all repos
   - Filterable by risk tier, provider, repo
   - Maps to Article 60 (EU database registration for high-risk AI)
