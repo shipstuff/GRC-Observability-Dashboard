@@ -522,9 +522,17 @@ function layout(title: string, content: string, orgName: string = ""): string {
     function checkProduction(owner, name, btn) {
       btn.disabled = true;
       btn.textContent = 'SCANNING...';
+      // Scope the lookup to THIS repo card's controls bar — querying the
+      // whole document would match the first open card's combobox when
+      // multiple cards are expanded. Read from the combobox's data-value
+      // attribute (the old select.value no longer applies).
       var branch = 'main';
-      var branchEl = document.querySelector('[id^="branch-"]');
-      if (branchEl) branch = branchEl.value;
+      var bar = btn.closest('.controls-bar');
+      var combo = bar ? bar.querySelector('.branch-combo') : null;
+      if (combo) {
+        var val = combo.getAttribute('data-value');
+        if (val) branch = val;
+      }
       fetch('/api/check-production/' + owner + '/' + name + '?branch=' + encodeURIComponent(branch), { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -588,9 +596,14 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
       return a.localeCompare(b);
     });
 
+    // Branch names never get embedded into the inline JS string — the handler
+    // reads `this.dataset.value` so names containing characters like `'` or
+    // `"` can't break out of the attribute context or inject script. `esc()`
+    // only sanitizes for HTML attribute values (double-quoted), which is all
+    // `data-value` needs.
     const branchItems = sortedBranches.map(b => {
       const isMain = b === "main" || b === "master";
-      return `<li data-value="${esc(b)}" onmousedown="selectBranch('${safeId}','${owner}','${name}','${esc(b)}')">${esc(b)}${isMain ? '<span class="main-pin">PINNED</span>' : ''}</li>`;
+      return `<li data-value="${esc(b)}" onmousedown="selectBranch('${safeId}','${owner}','${name}',this.dataset.value)">${esc(b)}${isMain ? '<span class="main-pin">PINNED</span>' : ''}</li>`;
     }).join("");
     const branchItemsWithEmpty = branchItems + `<li class="no-results" style="display:none;">no matches</li>`;
 
