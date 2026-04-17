@@ -1,5 +1,10 @@
 import type { Manifest } from "../../scanner/types.js";
 import type { RepoSummary, FunctionScore, HistoryEntry } from "../worker.js";
+import {
+  evaluateEUAIAct,
+  calcAIComplianceScore,
+  getAIPhaseScores,
+} from "../../scanner/frameworks/eu-ai-act.js";
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -828,9 +833,77 @@ export function renderAIComplianceView(manifest: Manifest): string {
     html += `</table>`;
   }
 
-  // Placeholder for Sub-phase C (framework mapping + scoring)
-  html += `<h3>EU AI ACT COMPLIANCE</h3>`;
-  html += `<p style="color:#555;font-size:8px;padding:8px 0;">Per-article obligation mapping and compliance scoring arrive in Sub-phase C. Risk tiers above feed into Article 6 / Annex III; high-risk systems additionally trigger FRIA (Art. 27), model card (Art. 11), and registration (Art. 60) obligations.</p>`;
+  // EU AI Act compliance (Sub-phase C)
+  const compliance = evaluateEUAIAct(manifest);
+  const complianceScore = calcAIComplianceScore(compliance);
+  const phaseScores = getAIPhaseScores(compliance);
+  const applicable = compliance.filter(r => r.status !== "not-applicable");
+  const passedCount = applicable.filter(r => r.status === "pass").length;
+  const partialCount = applicable.filter(r => r.status === "partial").length;
+  const failedCount = applicable.filter(r => r.status === "fail").length;
+  const naCount = compliance.length - applicable.length;
+  const euMarketCount = ai.filter(s => s.euMarket === true).length;
+  const highRiskCount = ai.filter(s => s.riskTier === "high" || s.riskTier === "prohibited").length;
+
+  html += `<h3>EU AI ACT COMPLIANCE // ${complianceScore}%</h3>`;
+  html += `<div style="margin-bottom:12px">${hpBar(complianceScore, 25, "EU")}</div>`;
+  html += `<div style="font-size:7px;color:#888;margin-top:-6px;margin-bottom:12px;letter-spacing:1px;">${passedCount}P ${partialCount}A ${failedCount}F ${naCount}N/A // HIGH-RISK ${highRiskCount} // EU MARKET ${euMarketCount}</div>`;
+
+  // Phase grid (NIST AI RMF: Govern / Map / Measure / Manage)
+  html += `<div class="nist-grid">`;
+  for (const p of phaseScores) {
+    const naPhase = compliance.filter(r => r.phase === p.name && r.status === "not-applicable").length;
+    const label = p.applicable === 0
+      ? `<span style="color:#555">N/A</span>`
+      : `${hpBar(p.percentage, 16, p.name.substring(0, 3).toUpperCase())}`;
+    html += `<div class="nist-func">
+      <div class="func-name">${p.name.toUpperCase()}</div>
+      ${label}
+      <div class="func-stats">${p.passed}P ${p.partial}A ${p.failed}F${naPhase > 0 ? " " + naPhase + "N/A" : ""}</div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // Articles table
+  html += `<h3>ARTICLES // ${applicable.length} APPLICABLE</h3>`;
+  html += `<table><colgroup><col style="width:10%"><col style="width:9%"><col style="width:27%"><col style="width:14%"><col style="width:20%"><col style="width:20%"></colgroup>`;
+  html += `<tr><th>ID</th><th>PHASE</th><th>ARTICLE</th><th>STATUS</th><th>NIST AI RMF</th><th>ISO 42001</th></tr>`;
+  for (const r of compliance) {
+    const statusColor = r.status === "pass" ? "#39ff14"
+      : r.status === "partial" ? "#ffff00"
+      : r.status === "fail" ? "#ff0040"
+      : "#555";
+    const statusText = r.status === "not-applicable" ? "N/A" : r.status.toUpperCase();
+    html += `<tr>`;
+    html += `<td style="color:#00ffff">${r.articleId}</td>`;
+    html += `<td style="color:#888;font-size:7px">${esc(r.phase)}</td>`;
+    html += `<td>${esc(r.title)}</td>`;
+    html += `<td style="color:${statusColor}">${statusIcon(r.status)} ${statusText}</td>`;
+    html += `<td style="font-size:6px;color:#888">${r.nistAiRmf.join(", ") || "\u2014"}</td>`;
+    html += `<td style="font-size:6px;color:#888">${r.iso42001.join(", ") || "\u2014"}</td>`;
+    html += `</tr>`;
+  }
+  html += `</table>`;
+
+  // Gaps with evidence
+  const gaps = compliance.filter(r => r.status === "fail" || r.status === "partial");
+  if (gaps.length > 0) {
+    html += `<h3>GAPS // ${gaps.length} ARTICLES</h3>`;
+    html += `<table><colgroup><col style="width:10%"><col style="width:20%"><col style="width:13%"><col style="width:57%"></colgroup>`;
+    html += `<tr><th>ID</th><th>ARTICLE</th><th>STATUS</th><th>EVIDENCE</th></tr>`;
+    for (const g of gaps) {
+      const color = g.status === "fail" ? "#ff0040" : "#ffff00";
+      html += `<tr>`;
+      html += `<td style="color:${color}">${g.articleId}</td>`;
+      html += `<td>${esc(g.title)}</td>`;
+      html += `<td style="color:${color}">${statusIcon(g.status)} ${g.status.toUpperCase()}</td>`;
+      html += `<td style="font-size:7px">${esc(g.evidence)}</td>`;
+      html += `</tr>`;
+    }
+    html += `</table>`;
+  }
+
+  html += `<p style="color:#666;font-size:7px;margin-top:12px;">EU AI Act obligations scope by risk tier and EU-market flag. High-risk-only articles (9/11/12/13/14/15/27/60/73) show as N/A unless a <code>high</code> or <code>prohibited</code> system is detected. Override risk tier or declare EU-market status via <code>ai_systems:</code> in <code>.grc/config.yml</code>. Advisory only — not a conformity assessment.</p>`;
 
   html += `</div>`;
   return html;

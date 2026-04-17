@@ -20,6 +20,8 @@ import { generateSecurityTxt } from "./generators/security-txt.js";
 import { generateHeaderRecommendations, generateHeaderReport } from "./generators/security-headers.js";
 import { assessRisks, generateRiskAssessment } from "./generators/risk-assessment.js";
 import { evaluateFramework, generateFrameworkReport } from "./generators/framework-report.js";
+import { evaluateEUAIAct, calcAIComplianceScore } from "./frameworks/eu-ai-act.js";
+import { generateAIComplianceReport } from "./generators/ai-compliance-report.js";
 import { runAIEnhancements } from "./ai/enhance.js";
 import { generateAIReport } from "./ai/report.js";
 import { execFile } from "node:child_process";
@@ -100,9 +102,13 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
 
   // Classify detected AI systems into EU AI Act risk tiers (Sub-phase B).
   // Heuristic classification runs first, then user overrides from config are applied.
+  // euMarket is populated per-system: override takes precedence, otherwise it
+  // defaults to `true` when the site declares GDPR jurisdiction.
+  const euMarketDefault = config.jurisdiction.includes("gdpr");
   const classifiedAISystems = applyAISystemOverrides(
     classifyAISystems(aiSystems),
     config.aiSystemOverrides,
+    { euMarket: euMarketDefault },
   );
 
   // scanArtifacts is NOT in the parallel block above because it needs to
@@ -281,6 +287,17 @@ async function main() {
   const partial = applicable.filter(r => r.status === "partial").length;
   const overallPct = Math.round(((passed + partial * 0.5) / applicable.length) * 100);
   console.log(`📄 NIST CSF report written to ${frameworkReportPath} (${overallPct}% compliant)`);
+
+  // Generate EU AI Act compliance report (Phase 8 Sub-phase C).
+  // Articles evaluate against the manifest — scoping by risk tier and euMarket
+  // is already encoded on each AISystem by Sub-phase B's classifier.
+  const aiComplianceResults = evaluateEUAIAct(manifest);
+  const aiComplianceReport = generateAIComplianceReport(aiComplianceResults, manifest, config);
+  const aiComplianceReportPath = resolve(grcDir, "ai-compliance-report.md");
+  await writeFile(aiComplianceReportPath, aiComplianceReport, "utf-8");
+  const aiComplianceScore = calcAIComplianceScore(aiComplianceResults);
+  const aiApplicable = aiComplianceResults.filter(r => r.status !== "not-applicable").length;
+  console.log(`📄 EU AI Act report written to ${aiComplianceReportPath} (${aiComplianceScore}% across ${aiApplicable} applicable articles)`);
 
   // Run AI enhancements (optional — graceful degradation)
   const aiEnhancements = await runAIEnhancements(config, manifest, risks, frameworkResults);
