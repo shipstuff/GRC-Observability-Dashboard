@@ -51,17 +51,31 @@ function layout(title: string, content: string, orgName: string = ""): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${esc(title)}</title>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
+    /*
+     * Typography split: Press Start 2P for pixel-font accents (headers,
+     * tab labels, stat values, hero text). JetBrains Mono for everything
+     * readable — tables, body text, inputs, tooltips. This keeps the
+     * retro arcade vibe where it matters and ditches it where eyes start
+     * to hurt.
+     */
+    :root {
+      --font-pixel: 'Press Start 2P', monospace;
+      --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: 'Press Start 2P', monospace;
+      font-family: var(--font-mono);
       background: #0a0a0a;
       color: #39ff14;
       min-height: 100vh;
-      font-size: 11px;
-      line-height: 1.8;
+      font-size: 13px;
+      line-height: 1.55;
     }
+    .pixel { font-family: var(--font-pixel); }
     body::after {
       content: "";
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -83,31 +97,33 @@ function layout(title: string, content: string, orgName: string = ""): string {
       text-align: center;
     }
     .header h1 {
-      font-size: 14px; color: #39ff14;
+      font-family: var(--font-pixel);
+      font-size: 18px; color: #39ff14;
       text-shadow: 0 0 10px #39ff14, 0 0 20px #39ff14, 0 0 40px #006400;
       letter-spacing: 2px; animation: flicker 4s infinite alternate;
     }
-    .header .subtitle { font-size: 7px; color: #00ffff; margin-top: 4px; letter-spacing: 4px; }
+    .header .subtitle { font-family: var(--font-pixel); font-size: 8px; color: #00ffff; margin-top: 8px; letter-spacing: 4px; }
     @keyframes flicker { 0%,95%,100%{opacity:1} 96%{opacity:0.8} 97%{opacity:1} 98%{opacity:0.9} }
     @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
     @keyframes slideIn { from{transform:translateY(-10px);opacity:0} to{transform:translateY(0);opacity:1} }
     .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
 
     .stats-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-    .stat-card { background: #0a0a0a; border: 1px solid #333; padding: 8px 12px; flex: 1; min-width: 100px; }
-    .stat-card .label { font-size: 6px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
-    .stat-card .value { font-size: 16px; text-shadow: 0 0 8px currentColor; }
+    .stat-card { background: #0a0a0a; border: 1px solid #333; padding: 10px 14px; flex: 1; min-width: 120px; }
+    .stat-card .label { font-family: var(--font-pixel); font-size: 7px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .stat-card .value { font-family: var(--font-pixel); font-size: 20px; text-shadow: 0 0 8px currentColor; line-height: 1.1; }
 
     .search-bar { margin-bottom: 16px; }
     .search-bar input {
-      width: 100%; font-family: 'Press Start 2P', monospace; font-size: 9px;
-      background: #050505; border: 1px solid #333; color: #39ff14; padding: 8px 12px; outline: none;
+      width: 100%; font-family: var(--font-mono); font-size: 13px;
+      background: #050505; border: 1px solid #333; color: #39ff14; padding: 10px 14px; outline: none;
     }
     .search-bar input:focus { border-color: #39ff14; box-shadow: 0 0 8px rgba(57,255,20,0.2); }
     .search-bar input::placeholder { color: #444; }
 
     .section-title {
-      font-size: 9px; color: #ff00ff; text-transform: uppercase;
+      font-family: var(--font-pixel);
+      font-size: 10px; color: #ff00ff; text-transform: uppercase;
       letter-spacing: 3px; margin-bottom: 12px; text-shadow: 0 0 6px #ff00ff;
     }
     .section-title::before { content: ">> "; }
@@ -120,67 +136,101 @@ function layout(title: string, content: string, orgName: string = ""): string {
     .repo-card:hover { border-color: #39ff14; box-shadow: 0 0 15px rgba(57,255,20,0.2); }
     .repo-card.open { border-color: #39ff14; }
     .repo-card .repo-header { display: flex; justify-content: space-between; align-items: center; }
-    .repo-card .repo-name { font-size: 11px; color: #39ff14; }
+    .repo-card .repo-name { font-family: var(--font-pixel); font-size: 12px; color: #39ff14; letter-spacing: 1px; }
     .repo-card:hover .repo-name { text-shadow: 0 0 8px #39ff14; }
-    .repo-card .repo-meta { font-size: 7px; color: #666; margin-top: 2px; }
-    .repo-card .checks-grid { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; border-top: 1px solid #1a1a1a; padding-top: 8px; }
-    .repo-card .check { font-size: 8px; display: flex; align-items: center; gap: 4px; color: #aaa; white-space: nowrap; }
-    .hp-bar { font-size: 9px; display: flex; align-items: center; gap: 4px; }
-    .hp-label { color: #ff0040; font-size: 7px; }
+    .repo-card .repo-meta { font-size: 11px; color: #888; margin-top: 6px; }
+    .repo-card .checks-grid { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; border-top: 1px solid #1a1a1a; padding-top: 10px; }
+    .repo-card .check { font-size: 11px; display: flex; align-items: center; gap: 4px; color: #aaa; white-space: nowrap; }
+    .hp-bar { font-family: var(--font-mono); font-size: 12px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .hp-label { font-family: var(--font-pixel); color: #ff0040; font-size: 8px; letter-spacing: 1px; }
     .hp-empty { color: #333; }
-    .icon { font-size: 9px; }
+    .icon { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0; }
     .icon.pass { color: #39ff14; }
     .icon.warn { color: #ffff00; }
     .icon.fail { color: #ff0040; }
     .icon.na { color: #555; }
 
-    /* Branch dropdown */
-    .branch-select {
-      font-family: 'Press Start 2P', monospace; font-size: 7px;
+    /* Searchable branch combobox */
+    .branch-combo { position: relative; display: inline-block; min-width: 220px; }
+    .branch-combo input {
+      width: 100%; font-family: var(--font-mono); font-size: 12px;
       background: #050505; border: 1px solid #333; color: #00ffff;
-      padding: 5px 8px; outline: none; cursor: pointer; margin-bottom: 4px;
+      padding: 7px 24px 7px 10px; outline: none; cursor: text;
     }
-    .branch-select:focus { border-color: #00ffff; }
+    .branch-combo input:focus { border-color: #00ffff; box-shadow: 0 0 6px rgba(0,255,255,0.2); }
+    .branch-combo .combo-caret {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      font-size: 10px; color: #666; pointer-events: none;
+    }
+    .branch-combo ul {
+      position: absolute; left: 0; right: 0; top: 100%; margin-top: 2px;
+      list-style: none; background: #050505; border: 1px solid #00ffff;
+      max-height: 220px; overflow-y: auto; z-index: 50;
+      box-shadow: 0 0 12px rgba(0,255,255,0.25); display: none;
+    }
+    .branch-combo.open ul { display: block; }
+    .branch-combo li {
+      font-family: var(--font-mono); font-size: 12px; color: #aaa;
+      padding: 6px 10px; cursor: pointer; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .branch-combo li.active { background: #0a0a0a; color: #00ffff; }
+    .branch-combo li.hit { color: #39ff14; }
+    .branch-combo li .main-pin {
+      font-family: var(--font-pixel); font-size: 7px; color: #ff00ff;
+      margin-left: 6px; letter-spacing: 1px;
+    }
+    .branch-combo li.no-results { color: #666; font-style: italic; cursor: default; }
 
-    /* Controls bar (branch dropdown + check production button) */
-    .controls-bar { display: flex; align-items: center; gap: 8px; padding: 8px 0; flex-wrap: wrap; }
+    /* Controls bar (branch combobox + check production button) */
+    .controls-bar { display: flex; align-items: center; gap: 10px; padding: 10px 0; flex-wrap: wrap; }
     .check-prod-btn {
-      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
       background: #050505; border: 1px solid #ff00ff; color: #ff00ff;
-      padding: 5px 10px; cursor: pointer; transition: all 0.15s;
+      padding: 7px 12px; cursor: pointer; transition: all 0.15s;
     }
     .check-prod-btn:hover { background: #ff00ff; color: #0a0a0a; }
     .check-prod-btn:disabled { opacity: 0.5; cursor: wait; }
-    .check-prod-result { font-size: 7px; margin-left: 8px; }
+    .check-prod-result { font-size: 11px; margin-left: 8px; color: #aaa; }
 
     /* Tabs */
     .tab-bar { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid #333; flex-wrap: wrap; }
     .tab {
-      padding: 6px 12px; font-size: 7px; color: #666; cursor: pointer;
+      padding: 8px 14px; font-size: 8px; color: #666; cursor: pointer;
       border: 1px solid #333; border-bottom: none; background: #050505;
-      font-family: 'Press Start 2P', monospace; letter-spacing: 1px; transition: all 0.15s;
+      font-family: var(--font-pixel); letter-spacing: 1px; transition: all 0.15s;
     }
     .tab:hover { color: #39ff14; border-color: #39ff14; }
     .tab.active { color: #39ff14; border-color: #39ff14; background: #0a0a0a; text-shadow: 0 0 6px #39ff14; }
 
     .detail {
       background: #050505; border: 1px solid #39ff14; border-top: none;
-      padding: 16px; margin-bottom: 12px;
+      padding: 18px; margin-bottom: 12px;
       box-shadow: 0 0 15px rgba(57,255,20,0.1); animation: slideIn 0.2s ease-out;
     }
-    .detail h3 { font-size: 9px; margin-bottom: 8px; color: #00ffff; text-shadow: 0 0 6px #00ffff; }
+    .detail h3 {
+      font-family: var(--font-pixel);
+      font-size: 11px; margin: 18px 0 10px; color: #00ffff; text-shadow: 0 0 6px #00ffff;
+      letter-spacing: 2px;
+    }
+    .detail h3:first-child { margin-top: 0; }
     .detail h3::before { content: "[ "; color: #555; }
     .detail h3::after { content: " ]"; color: #555; }
-    .detail table { width: 100%; border-collapse: collapse; margin-bottom: 16px; table-layout: fixed; }
-    .detail th, .detail td { text-align: left; padding: 5px 8px; font-size: 8px; border-bottom: 1px solid #1a1a1a; word-wrap: break-word; }
-    .detail th { color: #ff00ff; font-weight: normal; letter-spacing: 1px; }
+    .detail table { width: 100%; border-collapse: collapse; margin-bottom: 14px; table-layout: fixed; }
+    .detail th, .detail td { text-align: left; padding: 7px 10px; font-size: 12px; border-bottom: 1px solid #1a1a1a; word-wrap: break-word; vertical-align: top; }
+    .detail th {
+      font-family: var(--font-pixel); font-size: 8px;
+      color: #ff00ff; font-weight: normal; letter-spacing: 1px;
+    }
     .detail td { color: #ccc; }
-    .detail td code { color: #ffff00; background: none; font-family: 'Press Start 2P', monospace; font-size: 7px; word-break: break-all; }
+    .detail td code { color: #ffff00; background: none; font-family: var(--font-mono); font-size: 11px; word-break: break-all; }
+    .detail p { font-size: 12px; color: #aaa; line-height: 1.65; margin-bottom: 10px; }
+    .detail p code { color: #ffff00; font-family: var(--font-mono); font-size: 11px; }
 
-    .nist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-    .nist-func { background: #0a0a0a; border: 1px solid #222; padding: 10px; }
-    .nist-func .func-name { font-size: 8px; color: #00ffff; margin-bottom: 6px; text-shadow: 0 0 4px #00ffff; }
-    .nist-func .func-stats { font-size: 7px; color: #666; margin-top: 4px; }
+    .nist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .nist-func { background: #0a0a0a; border: 1px solid #222; padding: 12px; }
+    .nist-func .func-name { font-family: var(--font-pixel); font-size: 9px; color: #00ffff; margin-bottom: 8px; text-shadow: 0 0 4px #00ffff; letter-spacing: 1px; }
+    .nist-func .func-stats { font-family: var(--font-mono); font-size: 11px; color: #777; margin-top: 6px; letter-spacing: 1px; }
 
     .branch-diff.up { color: #39ff14; }
     .branch-diff.down { color: #ff0040; }
@@ -189,8 +239,8 @@ function layout(title: string, content: string, orgName: string = ""): string {
     .trend-chart svg { width: 100%; height: auto; display: block; }
     .trend-chart .grid-line { stroke: #1a1a1a; stroke-width: 1; }
     .trend-chart .axis-line { stroke: #333; stroke-width: 1; }
-    .trend-chart .axis-label { fill: #666; font-size: 6px; font-family: 'Press Start 2P', monospace; }
-    .trend-chart .x-label { fill: #888; font-size: 6px; font-family: 'Press Start 2P', monospace; }
+    .trend-chart .axis-label { fill: #888; font-size: 10px; font-family: var(--font-mono); }
+    .trend-chart .x-label { fill: #999; font-size: 10px; font-family: var(--font-mono); }
     .trend-chart .data-line { fill: none; stroke-width: 1.5; }
     .trend-chart .data-dot { stroke-width: 1; }
     .trend-chart .line-compliance { stroke: #39ff14; filter: drop-shadow(0 0 2px #39ff14); }
@@ -208,12 +258,13 @@ function layout(title: string, content: string, orgName: string = ""): string {
       position: absolute;
       display: none;
       grid-template-columns: auto 1fr;
-      gap: 3px 10px;
+      gap: 4px 12px;
       background: #0a0a0a;
       border: 1px solid #39ff14;
-      padding: 8px 10px;
-      font-size: 8px;
-      color: #aaa;
+      padding: 10px 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #ccc;
       pointer-events: none;
       z-index: 10;
       box-shadow: 0 0 12px rgba(57,255,20,0.3);
@@ -243,24 +294,61 @@ function layout(title: string, content: string, orgName: string = ""): string {
     .trend-chart .trend-hover-zone:hover, .trend-chart .trend-hover-zone.active { fill: rgba(255,255,255,0.04); }
 
     .empty { text-align: center; padding: 60px 20px; }
-    .empty h2 { font-size: 12px; color: #39ff14; margin-bottom: 12px; text-shadow: 0 0 10px #39ff14; }
-    .empty p { color: #666; font-size: 8px; }
+    .empty h2 { font-family: var(--font-pixel); font-size: 14px; color: #39ff14; margin-bottom: 14px; text-shadow: 0 0 10px #39ff14; }
+    .empty p { color: #888; font-size: 12px; }
     .cursor-blink::after { content: "_"; animation: blink 1s infinite; }
-    .insert-coin { text-align: center; font-size: 7px; color: #555; margin-top: 30px; letter-spacing: 2px; }
+    .insert-coin { font-family: var(--font-pixel); text-align: center; font-size: 8px; color: #555; margin-top: 30px; letter-spacing: 2px; }
+
+    /* Footnote text inside detail panes (legends, disclaimers). */
+    .detail .legend {
+      display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+      font-size: 11px; color: #888; margin: 8px 0 14px;
+    }
+    .detail .legend .swatch { display: inline-block; width: 10px; height: 10px; border: 1px solid #222; margin-right: 5px; vertical-align: -1px; }
+    .detail .note { font-size: 11px; color: #888; line-height: 1.6; margin-top: 10px; padding: 10px 12px; border-left: 2px solid #333; background: rgba(0,0,0,0.3); }
+    .detail .note code { color: #ffff00; font-family: var(--font-mono); font-size: 11px; }
+    .detail .note strong { color: #ccc; font-weight: 600; }
+
+    /* Lightweight CSS tooltip — attach by putting <span class="tip" data-tip="..."> wrapping trigger. */
+    .tip { position: relative; cursor: help; border-bottom: 1px dotted currentColor; }
+    .tip::after {
+      content: attr(data-tip);
+      position: absolute; left: 0; top: calc(100% + 6px);
+      min-width: 200px; max-width: 360px;
+      background: #0a0a0a; border: 1px solid #00ffff;
+      color: #ccc; font-family: var(--font-mono); font-size: 11px;
+      font-weight: normal; line-height: 1.5;
+      padding: 8px 10px; z-index: 100;
+      box-shadow: 0 0 10px rgba(0,255,255,0.25);
+      white-space: normal; text-align: left;
+      opacity: 0; visibility: hidden; transition: opacity 0.12s;
+      pointer-events: none;
+    }
+    .tip:hover::after, .tip:focus::after { opacity: 1; visibility: visible; }
+
+    /* Load more button for paginated lists. */
+    .load-more-btn {
+      display: block; margin: 10px auto 0;
+      font-family: var(--font-pixel); font-size: 8px; letter-spacing: 2px;
+      background: #050505; border: 1px solid #39ff14; color: #39ff14;
+      padding: 8px 18px; cursor: pointer; transition: all 0.15s;
+    }
+    .load-more-btn:hover { background: #0a0a0a; box-shadow: 0 0 10px rgba(57,255,20,0.3); }
+    .load-more-btn[hidden] { display: none; }
 
     @media (max-width: 768px) {
-      body { font-size: 9px; }
+      body { font-size: 12px; }
       .container { padding: 10px; }
       .header { padding: 10px 12px; }
-      .header h1 { font-size: 11px; }
-      .stats-row { gap: 4px; }
-      .stat-card { padding: 6px 8px; min-width: 70px; }
-      .stat-card .value { font-size: 12px; }
+      .header h1 { font-size: 14px; }
+      .stats-row { gap: 6px; }
+      .stat-card { padding: 8px 10px; min-width: 90px; }
+      .stat-card .value { font-size: 16px; }
       .repo-card .repo-header { flex-direction: column; align-items: flex-start; gap: 6px; }
-      .hp-bar { font-size: 7px; }
-      .tab { padding: 5px 8px; font-size: 6px; }
-      .detail { padding: 10px; }
-      .detail th, .detail td { padding: 4px; font-size: 7px; }
+      .hp-bar { font-size: 11px; }
+      .tab { padding: 6px 10px; font-size: 7px; }
+      .detail { padding: 12px; }
+      .detail th, .detail td { padding: 5px; font-size: 11px; }
       .nist-grid { grid-template-columns: 1fr; }
     }
   </style>
@@ -292,17 +380,114 @@ function layout(title: string, content: string, orgName: string = ""): string {
         entry.style.display = entry.getAttribute('data-repo').toLowerCase().includes(q) ? '' : 'none';
       });
     }
-    function switchBranch(repoId, owner, name) {
-      var branch = document.getElementById('branch-' + repoId).value;
+    function openCombo(id) {
+      var combo = document.getElementById('branch-' + id);
+      if (!combo) return;
+      combo.classList.add('open');
+      // Select the input text so typing replaces the current branch name cleanly.
+      var input = combo.querySelector('input');
+      if (input) input.select();
+    }
+    function closeComboSoon(id) {
+      setTimeout(function() {
+        var combo = document.getElementById('branch-' + id);
+        if (!combo) return;
+        combo.classList.remove('open');
+        // Restore the displayed branch name if the user typed a filter but
+        // didn't pick anything — otherwise their current branch looks wrong.
+        var input = combo.querySelector('input');
+        var current = combo.getAttribute('data-value');
+        if (input && input.value !== current) input.value = current;
+        // Reset filter visibility so the next open shows everything.
+        combo.querySelectorAll('li').forEach(function(li) { li.style.display = li.classList.contains('no-results') ? 'none' : ''; });
+        combo.querySelectorAll('li.active').forEach(function(li) { li.classList.remove('active'); });
+      }, 150);
+    }
+    function filterCombo(id) {
+      var combo = document.getElementById('branch-' + id);
+      if (!combo) return;
+      combo.classList.add('open');
+      var q = combo.querySelector('input').value.trim().toLowerCase();
+      var items = combo.querySelectorAll('li');
+      var visible = 0;
+      items.forEach(function(li) {
+        if (li.classList.contains('no-results')) return;
+        var v = (li.getAttribute('data-value') || '').toLowerCase();
+        var match = q === '' || v.indexOf(q) !== -1;
+        li.style.display = match ? '' : 'none';
+        li.classList.remove('active');
+        if (match) visible++;
+      });
+      var empty = combo.querySelector('li.no-results');
+      if (empty) empty.style.display = visible === 0 ? '' : 'none';
+      // Highlight the first match so Enter picks something sensible.
+      var firstVisible = combo.querySelector('li[data-value]:not([style*="display: none"])');
+      if (firstVisible) firstVisible.classList.add('active');
+    }
+    function comboKey(evt, repoId, owner, name) {
+      var combo = document.getElementById('branch-' + repoId);
+      if (!combo) return;
+      var key = evt.key;
+      if (key === 'Escape') {
+        combo.classList.remove('open');
+        evt.target.blur();
+        return;
+      }
+      if (key === 'Enter') {
+        evt.preventDefault();
+        var active = combo.querySelector('li.active');
+        if (active) selectBranch(repoId, owner, name, active.getAttribute('data-value'));
+        return;
+      }
+      if (key === 'ArrowDown' || key === 'ArrowUp') {
+        evt.preventDefault();
+        var visibles = Array.prototype.filter.call(combo.querySelectorAll('li[data-value]'), function(li) { return li.style.display !== 'none'; });
+        if (visibles.length === 0) return;
+        var idx = visibles.findIndex(function(li) { return li.classList.contains('active'); });
+        visibles.forEach(function(li) { li.classList.remove('active'); });
+        if (key === 'ArrowDown') idx = (idx + 1) % visibles.length;
+        else idx = (idx - 1 + visibles.length) % visibles.length;
+        if (idx < 0) idx = 0;
+        visibles[idx].classList.add('active');
+        visibles[idx].scrollIntoView({block: 'nearest'});
+      }
+    }
+    function selectBranch(repoId, owner, name, branch) {
+      var combo = document.getElementById('branch-' + repoId);
+      if (!combo) return;
+      combo.setAttribute('data-value', branch);
+      var input = combo.querySelector('input');
+      if (input) input.value = branch;
+      combo.classList.remove('open');
+      // Reload the active tab under the new branch.
       var panel = document.getElementById('panel-' + repoId);
-      // Reload active tab with new branch
       var activeTab = document.querySelector('#detail-' + repoId + ' .tab.active');
       var url = activeTab ? activeTab.getAttribute('data-url') : '/repo/' + owner + '/' + name;
       htmx.ajax('GET', url + '?branch=' + encodeURIComponent(branch), {target: panel, swap: 'innerHTML'});
     }
+    function loadMoreBranches(btn) {
+      // Reveal the next batch of hidden rows. When none remain, hide the button.
+      var detail = btn.previousElementSibling; // skip back over the <table>
+      // If the button moved (e.g. a <p> sits between), locate the table explicitly.
+      var parent = btn.parentElement;
+      var table = parent.querySelector('table');
+      if (!table) return;
+      var hidden = table.querySelectorAll('tr.branch-hidden');
+      var batch = 5;
+      var shown = 0;
+      for (var i = 0; i < hidden.length && shown < batch; i++) {
+        hidden[i].classList.remove('branch-hidden');
+        hidden[i].style.display = '';
+        shown++;
+      }
+      var remaining = table.querySelectorAll('tr.branch-hidden').length;
+      if (remaining === 0) btn.hidden = true;
+      else btn.textContent = 'LOAD MORE (' + remaining + ' HIDDEN)';
+    }
     function switchTab(repoId, owner, name, tab, btn) {
-      var branch = document.getElementById('branch-' + repoId);
-      var branchParam = branch ? '?branch=' + encodeURIComponent(branch.value) : '';
+      var combo = document.getElementById('branch-' + repoId);
+      var branchValue = combo ? combo.getAttribute('data-value') : '';
+      var branchParam = branchValue ? '?branch=' + encodeURIComponent(branchValue) : '';
       var url = '/' + tab + '/' + owner + '/' + name;
       btn.parentElement.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
       btn.classList.add('active');
@@ -403,9 +588,11 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
       return a.localeCompare(b);
     });
 
-    const branchOptions = sortedBranches.map(b =>
-      `<option value="${esc(b)}"${b === r.branch ? " selected" : ""}>${esc(b)}</option>`
-    ).join("");
+    const branchItems = sortedBranches.map(b => {
+      const isMain = b === "main" || b === "master";
+      return `<li data-value="${esc(b)}" onmousedown="selectBranch('${safeId}','${owner}','${name}','${esc(b)}')">${esc(b)}${isMain ? '<span class="main-pin">PINNED</span>' : ''}</li>`;
+    }).join("");
+    const branchItemsWithEmpty = branchItems + `<li class="no-results" style="display:none;">no matches</li>`;
 
     const hasSiteUrl = !!r.siteUrl;
 
@@ -435,9 +622,17 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
       </div>
       <div id="detail-${safeId}" style="display:none;">
         <div class="controls-bar">
-          <select class="branch-select" id="branch-${safeId}" onchange="switchBranch('${safeId}','${owner}','${name}')">
-            ${branchOptions}
-          </select>
+          <div class="branch-combo" id="branch-${safeId}" data-value="${esc(r.branch)}" onclick="event.stopPropagation();">
+            <input type="text" id="branch-input-${safeId}" value="${esc(r.branch)}" autocomplete="off" spellcheck="false" placeholder="filter branches..."
+              onfocus="openCombo('${safeId}')"
+              oninput="filterCombo('${safeId}')"
+              onblur="closeComboSoon('${safeId}')"
+              onkeydown="comboKey(event,'${safeId}','${owner}','${name}')">
+            <span class="combo-caret">\u25BE</span>
+            <ul>
+              ${branchItemsWithEmpty}
+            </ul>
+          </div>
           ${hasSiteUrl ? `<button class="check-prod-btn" onclick="event.stopPropagation();checkProduction('${owner}','${name}',this)">CHECK PRODUCTION</button><span class="check-prod-result"></span>` : ""}
         </div>
         <div class="tab-bar">
@@ -553,34 +748,61 @@ export function renderNistView(summary: RepoSummary, functionScores: FunctionSco
   return html;
 }
 
+// How many branches are visible before LOAD MORE needs to be clicked.
+// main is always included in the visible set, so the actual row count is
+// INITIAL_BRANCH_LIMIT + 1 when main isn't in the top N most recent.
+const INITIAL_BRANCH_LIMIT = 5;
+const LOAD_MORE_BATCH = 5;
+
 export function renderBranchComparison(summaries: RepoSummary[]): string {
   let html = `<div class="detail">`;
   html += `<h3>BRANCH COMPARISON // ${summaries.length} BRANCHES</h3>`;
 
   if (summaries.length <= 1) {
-    html += `<p style="color:#666;font-size:8px;padding:16px 0;">Only one branch scanned.</p>`;
+    html += `<p style="color:#888;padding:16px 0;">Only one branch scanned.</p>`;
     if (summaries.length === 1) {
-      const s = summaries[0];
-      html += `<div style="display:flex;gap:16px;align-items:center;"><span style="color:#00ffff;font-size:9px">${esc(s.branch)}</span>${hpBar(s.complianceScore, 12, "HP")} ${hpBar(s.nistScore, 12, "NIST")}</div>`;
+      const s = summaries[0]!;
+      html += `<div style="display:flex;gap:16px;align-items:center;"><span style="color:#00ffff;font-size:12px">${esc(s.branch)}</span>${hpBar(s.complianceScore, 12, "HP")} ${hpBar(s.nistScore, 12, "NIST")}</div>`;
     }
     html += `</div>`;
     return html;
   }
 
-  const sorted = [...summaries].sort((a, b) => b.complianceScore - a.complianceScore);
-  const mainBranch = sorted.find(s => s.branch === "main" || s.branch === "master") || sorted[0];
+  // Build display order: main first (pinned), then everything else by scanDate desc.
+  const mainBranch = summaries.find(s => s.branch === "main" || s.branch === "master") || summaries[0]!;
+  const others = summaries
+    .filter(s => s !== mainBranch)
+    .sort((a, b) => new Date(b.scanDate).getTime() - new Date(a.scanDate).getTime());
+  const ordered = [mainBranch, ...others];
+
+  // Visible = main + up to 5 most recent others. Everything past that gets
+  // `branch-hidden` and is revealed in batches by the LOAD MORE button.
+  const visibleCount = Math.min(ordered.length, 1 + INITIAL_BRANCH_LIMIT);
 
   html += `<table><colgroup><col style="width:25%"><col style="width:20%"><col style="width:20%"><col style="width:12%"><col style="width:12%"><col style="width:11%"></colgroup>`;
   html += `<tr><th>BRANCH</th><th>COMPLIANCE</th><th>NIST</th><th>VULNS</th><th>HDRS</th><th>VS MAIN</th></tr>`;
-  for (const s of sorted) {
+  for (let i = 0; i < ordered.length; i++) {
+    const s = ordered[i]!;
     const diff = s.complianceScore - mainBranch.complianceScore;
     const diffStr = s.branch === mainBranch.branch ? '<span style="color:#555">BASE</span>'
       : diff > 0 ? `<span class="branch-diff up">+${diff}%</span>`
       : diff < 0 ? `<span class="branch-diff down">${diff}%</span>`
       : '<span style="color:#666">=</span>';
-    html += `<tr><td style="color:#00ffff">${esc(s.branch)}</td><td>${hpBar(s.complianceScore, 8, "")}</td><td>${hpBar(s.nistScore, 8, "")}</td><td style="color:${s.criticalVulns + s.highVulns > 0 ? "#ff0040" : "#39ff14"}">${s.criticalVulns}C/${s.highVulns}H</td><td>${s.headersPresent}/${s.headersTotal}</td><td>${diffStr}</td></tr>`;
+    const hidden = i >= visibleCount;
+    const rowAttrs = hidden ? ` class="branch-hidden" style="display:none"` : "";
+    const namePrefix = s.branch === mainBranch.branch ? '<span class="main-pin" style="color:#ff00ff;margin-right:6px;font-family:var(--font-pixel);font-size:7px;letter-spacing:1px;">PINNED</span>' : "";
+    html += `<tr${rowAttrs}><td style="color:#00ffff">${namePrefix}${esc(s.branch)}</td><td>${hpBar(s.complianceScore, 8, "")}</td><td>${hpBar(s.nistScore, 8, "")}</td><td style="color:${s.criticalVulns + s.highVulns > 0 ? "#ff0040" : "#39ff14"}">${s.criticalVulns}C/${s.highVulns}H</td><td>${s.headersPresent}/${s.headersTotal}</td><td>${diffStr}</td></tr>`;
   }
-  html += `</table></div>`;
+  html += `</table>`;
+
+  const hiddenCount = ordered.length - visibleCount;
+  if (hiddenCount > 0) {
+    html += `<button class="load-more-btn" type="button" onclick="loadMoreBranches(this)">LOAD MORE (${hiddenCount} HIDDEN)</button>`;
+  }
+
+  html += `<p class="note" style="margin-top:14px">Main is pinned; other branches ordered by most recent scan. Branches beyond the first ${INITIAL_BRANCH_LIMIT + 1} are hidden — reveal in batches of ${LOAD_MORE_BATCH} with the button above.</p>`;
+
+  html += `</div>`;
   return html;
 }
 
@@ -766,12 +988,14 @@ export function renderAIComplianceView(manifest: Manifest): string {
   html += `<h3>AI SYSTEMS // ${ai.length} DETECTED</h3>`;
 
   if (ai.length === 0) {
-    html += `<p style="color:#666;font-size:8px;padding:16px 0;">No AI systems detected in this repo. The scanner checks package.json, requirements.txt, pyproject.toml, and outbound API calls.</p>`;
+    html += `<p>No AI systems detected in this repo. The scanner checks package.json, requirements.txt, pyproject.toml, and outbound API calls.</p>`;
     html += `</div>`;
     return html;
   }
 
-  // Systems table
+  // Systems table. Risk tier and source badge each wrap in a `.tip` span
+  // so the hover tooltip is actually discoverable (dotted underline, CSS
+  // tooltip box) instead of relying on the browser's slow native title hint.
   html += `<table><colgroup><col style="width:20%"><col style="width:16%"><col style="width:13%"><col style="width:28%"><col style="width:23%"></colgroup>`;
   html += `<tr><th>PROVIDER</th><th>SDK</th><th>CATEGORY</th><th>LOCATION</th><th>RISK TIER</th></tr>`;
   for (const s of ai) {
@@ -788,37 +1012,39 @@ export function renderAIComplianceView(manifest: Manifest): string {
       : tier === "minimal" ? "#39ff14"
       : "#888";
     const overridden = s.riskTierSource === "override";
-    const sourceMark = overridden
-      ? `<span style="color:#888;font-size:7px;" title="Set by override in .grc/config.yml"> \u2605 OVERRIDE</span>`
-      : `<span style="color:#555;font-size:7px;"> TENTATIVE</span>`;
-    const reasoningAttr = s.riskReasoning ? ` title="${esc(s.riskReasoning)}"` : "";
+    const reasoning = s.riskReasoning ? esc(s.riskReasoning) : "";
+    const tierCell = reasoning
+      ? `<span class="tip" data-tip="${reasoning}" style="color:${tierColor}">${esc(tier)}</span>`
+      : `<span style="color:${tierColor}">${esc(tier)}</span>`;
+    const sourceBadge = overridden
+      ? `<span class="tip" data-tip="Risk tier set by an explicit entry in .grc/config.yml — not the heuristic classifier." style="color:#888;margin-left:8px;font-size:10px;">\u2605 OVERRIDE</span>`
+      : `<span class="tip" data-tip="Heuristic classification — treat as a starting point. Override via ai_systems in .grc/config.yml if misclassified." style="color:#666;margin-left:8px;font-size:10px;">TENTATIVE</span>`;
 
     html += `<tr>`;
     html += `<td style="color:#00ffff">${esc(s.provider)}</td>`;
     html += `<td>${esc(s.sdk)}</td>`;
     html += `<td style="color:${categoryColor}">${esc(s.category)}</td>`;
     html += `<td><code>${esc(s.location)}</code></td>`;
-    html += `<td style="color:${tierColor}"${reasoningAttr}>${esc(tier)}${sourceMark}</td>`;
+    html += `<td>${tierCell}${sourceBadge}</td>`;
     html += `</tr>`;
   }
   html += `</table>`;
 
-  // Tier legend + override pointer
-  html += `<div style="font-size:7px;color:#666;margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;">`;
-  html += `<span><span style="color:#ff0040">\u25A0</span> prohibited (Art. 5)</span>`;
-  html += `<span><span style="color:#ff8c00">\u25A0</span> high (Annex III)</span>`;
-  html += `<span><span style="color:#ffff00">\u25A0</span> limited (Art. 50)</span>`;
-  html += `<span><span style="color:#39ff14">\u25A0</span> minimal</span>`;
+  // Combined legend — tiers on one row, categories on a second.
+  html += `<div class="legend" style="flex-direction:column;align-items:flex-start;gap:6px">`;
+  html += `<div style="display:flex;gap:14px;flex-wrap:wrap;"><span style="color:#666;letter-spacing:1px;">RISK TIER</span>`;
+  html += `<span><span class="swatch" style="background:#ff0040"></span>prohibited (Art. 5)</span>`;
+  html += `<span><span class="swatch" style="background:#ff8c00"></span>high (Annex III)</span>`;
+  html += `<span><span class="swatch" style="background:#ffff00"></span>limited (Art. 50)</span>`;
+  html += `<span><span class="swatch" style="background:#39ff14"></span>minimal</span>`;
   html += `</div>`;
-  html += `<p style="color:#666;font-size:7px;margin-top:6px;">Classifications are heuristic and tentative. Hover a tier for reasoning. Override in <code>.grc/config.yml</code> via <code>ai_systems:</code> (location, risk_tier, purpose, eu_market).</p>`;
-
-  // Category legend
-  html += `<div style="font-size:7px;color:#666;margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;">`;
-  html += `<span><span style="color:#00ffff">\u25A0</span> inference</span>`;
-  html += `<span><span style="color:#ff00ff">\u25A0</span> training</span>`;
-  html += `<span><span style="color:#ffff00">\u25A0</span> vector-db</span>`;
-  html += `<span><span style="color:#39ff14">\u25A0</span> framework</span>`;
-  html += `<span><span style="color:#888">\u25A0</span> self-hosted</span>`;
+  html += `<div style="display:flex;gap:14px;flex-wrap:wrap;"><span style="color:#666;letter-spacing:1px;">CATEGORY</span>`;
+  html += `<span><span class="swatch" style="background:#00ffff"></span>inference</span>`;
+  html += `<span><span class="swatch" style="background:#ff00ff"></span>training</span>`;
+  html += `<span><span class="swatch" style="background:#ffff00"></span>vector-db</span>`;
+  html += `<span><span class="swatch" style="background:#39ff14"></span>framework</span>`;
+  html += `<span><span class="swatch" style="background:#888"></span>self-hosted</span>`;
+  html += `</div>`;
   html += `</div>`;
 
   // Data flows section (populates when forms/endpoints correlation is built)
@@ -848,27 +1074,36 @@ export function renderAIComplianceView(manifest: Manifest): string {
   const highRiskCount = ai.filter(s => s.riskTier === "high" || s.riskTier === "prohibited").length;
 
   html += `<h3>EU AI ACT COMPLIANCE // ${complianceScore}%</h3>`;
-  html += `<div style="margin-bottom:12px">${hpBar(complianceScore, 25, "EU")}</div>`;
-  html += `<div style="font-size:7px;color:#888;margin-top:-6px;margin-bottom:12px;letter-spacing:1px;">${passedCount}P ${partialCount}A ${failedCount}F ${naCount}N/A // HIGH-RISK ${highRiskCount} // EU MARKET ${euMarketCount}</div>`;
+  html += `<div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:14px;">`;
+  html += `<div>${hpBar(complianceScore, 25, "EU")}</div>`;
+  html += `<div style="font-size:11px;color:#aaa;">`;
+  html += `<span style="color:#39ff14">${passedCount} PASS</span> &middot; `;
+  html += `<span style="color:#ffff00">${partialCount} PARTIAL</span> &middot; `;
+  html += `<span style="color:#ff0040">${failedCount} FAIL</span> &middot; `;
+  html += `<span style="color:#666">${naCount} N/A</span>`;
+  html += `</div>`;
+  html += `<div style="font-size:11px;color:#888;">HIGH-RISK <span style="color:#ff8c00">${highRiskCount}</span> &middot; EU MARKET <span style="color:#00ffff">${euMarketCount}</span></div>`;
+  html += `</div>`;
 
   // Phase grid (NIST AI RMF: Govern / Map / Measure / Manage)
   html += `<div class="nist-grid">`;
   for (const p of phaseScores) {
     const naPhase = compliance.filter(r => r.phase === p.name && r.status === "not-applicable").length;
     const label = p.applicable === 0
-      ? `<span style="color:#555">N/A</span>`
+      ? `<span style="color:#555;font-family:var(--font-mono);font-size:12px;">N/A</span>`
       : `${hpBar(p.percentage, 16, p.name.substring(0, 3).toUpperCase())}`;
     html += `<div class="nist-func">
       <div class="func-name">${p.name.toUpperCase()}</div>
       ${label}
-      <div class="func-stats">${p.passed}P ${p.partial}A ${p.failed}F${naPhase > 0 ? " " + naPhase + "N/A" : ""}</div>
+      <div class="func-stats">${p.passed}P &middot; ${p.partial}A &middot; ${p.failed}F${naPhase > 0 ? " &middot; " + naPhase + " N/A" : ""}</div>
     </div>`;
   }
   html += `</div>`;
 
-  // Articles table
+  // Articles table — the evidence string is attached as a tooltip on the
+  // article title for quick preview; the gaps table below shows full text.
   html += `<h3>ARTICLES // ${applicable.length} APPLICABLE</h3>`;
-  html += `<table><colgroup><col style="width:10%"><col style="width:9%"><col style="width:27%"><col style="width:14%"><col style="width:20%"><col style="width:20%"></colgroup>`;
+  html += `<table><colgroup><col style="width:10%"><col style="width:10%"><col style="width:32%"><col style="width:14%"><col style="width:17%"><col style="width:17%"></colgroup>`;
   html += `<tr><th>ID</th><th>PHASE</th><th>ARTICLE</th><th>STATUS</th><th>NIST AI RMF</th><th>ISO 42001</th></tr>`;
   for (const r of compliance) {
     const statusColor = r.status === "pass" ? "#39ff14"
@@ -876,13 +1111,16 @@ export function renderAIComplianceView(manifest: Manifest): string {
       : r.status === "fail" ? "#ff0040"
       : "#555";
     const statusText = r.status === "not-applicable" ? "N/A" : r.status.toUpperCase();
+    const titleCell = r.evidence
+      ? `<span class="tip" data-tip="${esc(r.evidence)}">${esc(r.title)}</span>`
+      : esc(r.title);
     html += `<tr>`;
     html += `<td style="color:#00ffff">${r.articleId}</td>`;
-    html += `<td style="color:#888;font-size:7px">${esc(r.phase)}</td>`;
-    html += `<td>${esc(r.title)}</td>`;
+    html += `<td style="color:#888;font-size:11px">${esc(r.phase)}</td>`;
+    html += `<td>${titleCell}</td>`;
     html += `<td style="color:${statusColor}">${statusIcon(r.status)} ${statusText}</td>`;
-    html += `<td style="font-size:6px;color:#888">${r.nistAiRmf.join(", ") || "\u2014"}</td>`;
-    html += `<td style="font-size:6px;color:#888">${r.iso42001.join(", ") || "\u2014"}</td>`;
+    html += `<td style="font-size:11px;color:#888">${r.nistAiRmf.join(", ") || "\u2014"}</td>`;
+    html += `<td style="font-size:11px;color:#888">${r.iso42001.join(", ") || "\u2014"}</td>`;
     html += `</tr>`;
   }
   html += `</table>`;
@@ -891,7 +1129,7 @@ export function renderAIComplianceView(manifest: Manifest): string {
   const gaps = compliance.filter(r => r.status === "fail" || r.status === "partial");
   if (gaps.length > 0) {
     html += `<h3>GAPS // ${gaps.length} ARTICLES</h3>`;
-    html += `<table><colgroup><col style="width:10%"><col style="width:20%"><col style="width:13%"><col style="width:57%"></colgroup>`;
+    html += `<table><colgroup><col style="width:10%"><col style="width:22%"><col style="width:13%"><col style="width:55%"></colgroup>`;
     html += `<tr><th>ID</th><th>ARTICLE</th><th>STATUS</th><th>EVIDENCE</th></tr>`;
     for (const g of gaps) {
       const color = g.status === "fail" ? "#ff0040" : "#ffff00";
@@ -899,13 +1137,18 @@ export function renderAIComplianceView(manifest: Manifest): string {
       html += `<td style="color:${color}">${g.articleId}</td>`;
       html += `<td>${esc(g.title)}</td>`;
       html += `<td style="color:${color}">${statusIcon(g.status)} ${g.status.toUpperCase()}</td>`;
-      html += `<td style="font-size:7px">${esc(g.evidence)}</td>`;
+      html += `<td>${esc(g.evidence)}</td>`;
       html += `</tr>`;
     }
     html += `</table>`;
   }
 
-  html += `<p style="color:#666;font-size:7px;margin-top:12px;">EU AI Act obligations scope by risk tier and EU-market flag. High-risk-only articles (9/11/12/13/14/15/27/60/73) show as N/A unless a <code>high</code> or <code>prohibited</code> system is detected. Override risk tier or declare EU-market status via <code>ai_systems:</code> in <code>.grc/config.yml</code>. Advisory only — not a conformity assessment.</p>`;
+  // Disclaimer block — split from one dense sentence into a readable note.
+  html += `<div class="note">`;
+  html += `<strong>Scoping.</strong> High-risk-only articles (9 / 11 / 12 / 13 / 14 / 15 / 27 / 60 / 73) display <span style="color:#555">N/A</span> unless a <code>high</code> or <code>prohibited</code> system is detected. Articles 27 and 60 additionally require <code>eu_market: true</code>.<br>`;
+  html += `<strong>Overrides.</strong> Hover any tier for its reasoning. Declare <code>risk_tier</code> and <code>eu_market</code> per system under <code>ai_systems:</code> in <code>.grc/config.yml</code> to replace the heuristic.<br>`;
+  html += `<strong>Caveat.</strong> Advisory output — this is not a conformity assessment and does not substitute for review by a notified body.`;
+  html += `</div>`;
 
   html += `</div>`;
   return html;
