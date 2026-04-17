@@ -120,6 +120,7 @@ The dashboard shows compliance posture across all your repos:
 - Org-wide stats (compliance %, NIST CSF %, vulnerabilities, secrets)
 - Per-repo detail with data collection, headers, TLS, deps, access controls, artifacts
 - NIST CSF tab with per-function scores and SOC 2 / ISO 27001 cross-references
+- **AI tab** with detected AI systems (provider, SDK, category), risk tier, and data flows
 - Branch dropdown to compare compliance across branches
 - Search/filter by repo name
 - Trend tracking over time (last 500 scans per repo)
@@ -192,6 +193,7 @@ Reports are written to `/path/to/repo/.grc/`. Policies are written to `/path/to/
 - **Artifacts** - existence of policies, security.txt, IRP at configured `output_dir`
 - **Security Headers** - CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy (live URL check)
 - **TLS** - HTTPS enforcement, certificate expiry (live URL check)
+- **AI Systems** - detects AI SDKs (OpenAI, Anthropic, Cohere, Gemini, HuggingFace, Mistral, Groq, LangChain, LlamaIndex, Vercel AI SDK), training libs (TensorFlow, PyTorch), vector DBs (Pinecone, Weaviate, ChromaDB, Qdrant), and outbound API calls. Supports Node (`package.json`), Python (`requirements.txt`, `pyproject.toml`), and monorepos.
 
 ## AI Enhancements (Optional)
 
