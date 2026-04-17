@@ -11,6 +11,7 @@ import { scanSecurityHeaders } from "./rules/security-headers.js";
 import { scanTls } from "./rules/tls.js";
 import { scanArtifacts } from "./rules/artifacts.js";
 import { scanAccessControls, generateAccessControlReport } from "./rules/access-controls.js";
+import { scanAISystems } from "./rules/ai-systems.js";
 import { ScanContext, Manifest } from "./types.js";
 import { loadConfig } from "./config.js";
 import { renderPrivacyPolicy, renderTermsOfService, renderVulnerabilityDisclosure, renderIncidentResponsePlan } from "./render.js";
@@ -84,6 +85,7 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     secretsData,
     trackingData,
     { controls: accessControls, findings: authFindings },
+    aiSystems,
   ] = await Promise.all([
     scanForms(ctx).then(r => { console.log(`   ✓ Forms: ${r.length} found`); return r; }),
     scanDependencies(ctx).then(r => { console.log(`   ✓ Dependencies: ${r.services.length} third-party services`); return r; }),
@@ -92,6 +94,7 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     scanSecrets(ctx).then(r => { console.log(`   ✓ Secrets: ${r.findings.length} potential leaks`); return r; }),
     scanTracking(ctx).then(r => { console.log(`   ✓ Tracking: ${r.length} services`); return r; }),
     scanAccessControls(ctx).then(r => { console.log(`   ✓ Access controls: ${r.findings.length} findings`); return r; }),
+    scanAISystems(ctx).then(r => { console.log(`   ✓ AI systems: ${r.length} detected`); return r; }),
   ]);
 
   // scanArtifacts is NOT in the parallel block above because it needs to
@@ -157,6 +160,7 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     secretsScan: secretsData,
     artifacts,
     accessControls,
+    aiSystems,
     policyUrls,
   };
 
@@ -314,6 +318,12 @@ async function main() {
   console.log(`   security.txt:           ${manifest.artifacts.securityTxt}`);
   console.log(`   Vuln Disclosure:        ${manifest.artifacts.vulnerabilityDisclosure}`);
   console.log(`   Incident Response Plan: ${manifest.artifacts.incidentResponsePlan}`);
+  if (manifest.aiSystems.length > 0) {
+    console.log(`   AI Systems:             ${manifest.aiSystems.length} detected`);
+    for (const ai of manifest.aiSystems) {
+      console.log(`     - ${ai.provider} (${ai.category}) via ${ai.sdk}`);
+    }
+  }
   console.log("─────────────────────────────────────────\n");
 }
 

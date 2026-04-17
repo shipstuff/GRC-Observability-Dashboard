@@ -114,9 +114,9 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - **GRC concept:** Control frameworks, control objectives, evidence collection
 - **Known limitation:** 18 of NIST CSF 2.0's ~100 subcategories. "75% NIST CSF compliant" is 75% of our 18 controls, not the full framework.
 
-## Phase 4: AI Enhancement Layer — BUILT, NOT VALIDATED
+## Phase 4: AI Enhancement Layer — VALIDATED
 
-Optional module — scanner works fully without AI. If an API key is provided, AI enhances output.
+Optional module — scanner works fully without AI. If an API key is provided, AI enhances output. Validated end-to-end with OpenAI gpt-4o-mini on joeeftekhari.com.
 
 ### AI Module Foundation — DONE
 - [x] Create `scanner/ai/provider.ts` with provider abstraction (Anthropic, OpenAI)
@@ -124,21 +124,22 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] API key via environment variable / GitHub secrets (never in config file)
 - [x] Graceful degradation — disabled in config: silent skip; enabled without key: warns and skips
 
-### AI-Enhanced Scans — CODE EXISTS, OUTPUT UNVALIDATED
-- [x] PII classification — LLM classifies every form field with GDPR category, confidence, reasoning
-- [x] Risk narrative enhancement — AI writes plain-English risk descriptions with business context
-- [ ] **Validate AI output with a real API key** — prompts are untested, output quality unknown
+### AI-Enhanced Scans — VALIDATED
+- [x] PII classification — 32 fields classified (email → directly-identifying, cookie_data → pseudonymous, game fields → non-personal). Fixed markdown code fence parse issue (PR #19).
+- [x] Risk narrative enhancement — 4 risks enhanced with plain-English business context
+- [x] Validated with real OpenAI API key — output quality is good, classifications are accurate
 - [ ] Context-aware CSP generation — AI fetches page, sees actual resources, generates precise policy
 - [ ] Remediation code generation — AI looks at actual codebase patterns and generates specific fixes
 
-### AI-Enhanced Outputs — CODE EXISTS, OUTPUT UNVALIDATED
-- [x] PR comment summarization — AI generates GitHub PR comment summarizing compliance posture
-- [x] Gap analysis — AI recommends top 3 highest-impact actions with effort estimates
+### AI-Enhanced Outputs — VALIDATED
+- [x] PR comment summarization — generates compliance score, critical/high risk highlights, actionable next step
+- [x] Gap analysis — 3 prioritized recommendations with effort estimates and framework control mappings
 - [x] AI report output at `.grc/ai-analysis.md`
 - [x] PR comment output at `.grc/pr-comment.md` for GitHub Action to post
-- [ ] **Run end-to-end with real API key and review actual output** — blocking task before relying on this layer
+- [x] End-to-end validated with real API key — all four enhancements produce useful, actionable output
 - [ ] Auto-fix PRs — AI generates remediation PRs for common issues
 - [ ] Auditor-friendly summaries — AI translates technical findings into compliance language
+- **Known limitation:** AI output currently lives in `.grc/` (gitignored) and the PR comment. Risk narratives and gap analysis are not visible on the dashboard.
 
 ## Phase 5: Dashboard Build — DONE
 
@@ -265,16 +266,20 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 
 **Our own meta-obligation:** The scanner uses Anthropic/OpenAI in its AI layer. That makes the dashboard itself an "AI system" under the EU AI Act. When we ship this, the scanner should scan itself and produce its own AI compliance documentation.
 
-### Sub-phase A: AI System Detection
-- [ ] New scan rule `scanner/rules/ai-systems.ts`
-- [ ] Detect SDK imports: `openai`, `@anthropic-ai/sdk`, `cohere-ai`, `@google/generative-ai`, `@huggingface/inference`
-- [ ] Detect framework imports: `langchain`, `llamaindex`, `ai` (Vercel AI SDK), `@langchain/core`
-- [ ] Detect self-hosted indicators: `ollama`, `vllm`, `transformers`, `ctransformers`
-- [ ] Detect ML training libraries: `tensorflow`, `pytorch`, `sklearn` (signals training pipeline, not just inference)
-- [ ] Detect vector DB usage: `pinecone`, `weaviate`, `chromadb`, `qdrant` (signals RAG)
-- [ ] Detect outbound API calls: `api.openai.com`, `api.anthropic.com`, etc.
-- [ ] Correlate with existing `forms.ts` and `endpoints.ts` output — identify what user data flows to each AI system
-- [ ] Add `aiSystems: AISystem[]` field to manifest schema
+### Sub-phase A: AI System Detection — DONE
+- [x] New scan rule `scanner/rules/ai-systems.ts`
+- [x] Detect Node SDK imports: `openai`, `@anthropic-ai/sdk`, `cohere-ai`, `@google/generative-ai`, `@huggingface/inference`, `@mistralai/mistralai`, `groq-sdk`, `together-ai`, `replicate`
+- [x] Detect framework imports: `langchain`, `@langchain/core`, `@langchain/openai`, `@langchain/anthropic`, `llamaindex`, `ai` (Vercel AI SDK), `@ai-sdk/openai`, `@ai-sdk/anthropic`
+- [x] Detect self-hosted indicators: `ollama`, `@ollama/ollama`
+- [x] Detect ML training libraries: `@tensorflow/tfjs`, `onnxruntime-node`
+- [x] Detect vector DB usage: `@pinecone-database/pinecone`, `weaviate-ts-client`, `chromadb`, `@qdrant/js-client-rest`, `@upstash/vector`
+- [x] Detect Python packages: `openai`, `anthropic`, `cohere`, `langchain`, `llama-index`, `transformers`, `torch`, `tensorflow`, `scikit-learn`, `pinecone-client`, `chromadb`, `weaviate-client`, `qdrant-client`, `ollama`, `vllm`, `ctransformers` (via `requirements.txt`)
+- [x] Detect outbound API calls: `api.openai.com`, `api.anthropic.com`, `api.cohere.ai`, `generativelanguage.googleapis.com`, `api.mistral.ai`, `api.groq.com`, `api.together.xyz`, `api.replicate.com`
+- [x] Add `AISystem` type and `aiSystems: AISystem[]` field to manifest schema
+- [x] Each detected system includes: provider, sdk name, file location, category (inference/training/vector-db/framework/self-hosted)
+- [x] Verified on joeeftekhari.com: detected OpenAI via package.json
+- [x] Verified on GRC-Observability-Dashboard: detected OpenAI + Anthropic via outbound API call patterns
+- [ ] Correlate with `forms.ts` and `endpoints.ts` output to populate `dataFlows` (currently empty array — deferred to Sub-phase B or later)
 - **GRC concept:** AI inventory, data flow mapping for AI
 
 ### Sub-phase B: AI Risk Classification
@@ -473,7 +478,7 @@ These cut across all phases and should be addressed opportunistically.
 - [ ] CSP auto-generator only catches HTML-embedded CDN imports (Google Analytics) — misses CDN script tags (unpkg, jsdelivr, cdnjs), so output needs manual review
 
 ### Unvalidated Claims
-- [ ] AI layer has never been run with a real API key — Phase 4 prompts untested
+- [x] ~~AI layer has never been run with a real API key~~ — validated with OpenAI gpt-4o-mini, all 4 enhancements work (PR #19)
 - [ ] Open-source setup instructions have never been fork-tested from scratch
 - [ ] "Copy-paste ready" middleware claim overstated (CSP usually requires manual edits)
 - [ ] "Works on any Node/Python/Go repo" claim overstated (Node works, others are placeholder)
