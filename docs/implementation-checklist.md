@@ -282,23 +282,27 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [ ] Correlate with `forms.ts` and `endpoints.ts` output to populate `dataFlows` (currently empty array — deferred to Sub-phase B or later)
 - **GRC concept:** AI inventory, data flow mapping for AI
 
-### Sub-phase B: AI Risk Classification
-- [ ] Heuristic classifier mapping context signals to EU AI Act risk tiers:
-  - **Prohibited**: social scoring keywords, biometric ID + real-time context
-  - **High-risk**: employment/hiring, credit/financial decisions, healthcare, education/scoring, critical infrastructure
-  - **Limited risk**: chat/assistant/support without autonomous decisions, user-facing content generation
-  - **Minimal risk**: code tooling, dev assistance, internal-only analytics
-- [ ] Allow user overrides via `.grc/config.yml`:
+### Sub-phase B: AI Risk Classification — DONE
+- [x] Heuristic classifier (`scanner/rules/ai-risk-classifier.ts`) mapping context signals to EU AI Act risk tiers:
+  - **Prohibited**: path keywords covering social scoring, subliminal manipulation, vulnerability exploitation (Art. 5)
+  - **High-risk**: path keywords for hiring/recruit/CV screening, credit/underwriting, medical/clinical, biometric ID, exam grading/admissions (Annex III)
+  - **Limited risk**: category `inference` / `framework` defaults (chat/assistant/generation; Art. 50 transparency)
+  - **Minimal risk**: `vector-db`, `self-hosted`, and inference located in `tests`/`scripts`/`tools`/`examples`/`fixtures` path segments
+  - Each classification includes `riskReasoning` shown on hover in the dashboard
+- [x] User overrides via `.grc/config.yml` `ai_systems:` array — matches by `location` (required) and optional `name` (matches AISystem.sdk); tier/purpose/eu_market all configurable:
   ```yaml
   ai_systems:
     - location: src/server.ts
-      name: style-generator
+      name: openai
       risk_tier: minimal
       purpose: "Generate CSS from user prompts"
       eu_market: true
   ```
-- [ ] Dashboard always shows classifications as tentative + displays override mechanism
+- [x] Dashboard labels heuristic tiers as `TENTATIVE` and overrides as `★ OVERRIDE`; color-coded by tier (red/orange/yellow/green), with reasoning on hover
+- [x] `AISystem` extended with `riskTier`, `riskTierSource` ("heuristic" | "override"), `riskReasoning` (all optional for backward compat with older manifests)
+- [x] Verified on this repo — OpenAI + Anthropic both classified as `limited` with correct reasoning
 - **GRC concept:** AI risk tiering under EU AI Act Article 6, Annex III
+- **Known limitation:** Heuristic relies only on path-name keywords and category. A file named `screening` could be hiring OR spam screening — false positives expected. The override mechanism is the escape hatch.
 
 ### Sub-phase C: EU AI Act Framework Mapping
 - [ ] New framework file `scanner/frameworks/eu-ai-act.ts` with articles mapped to scan findings
@@ -320,7 +324,7 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 ### Sub-phase E: Dashboard Views — IN PROGRESS
 - [x] New "AI" tab per repo with:
   - [x] Table of detected AI systems: provider, SDK, category (color-coded), location
-  - [x] Risk Tier column (shows TBD until Sub-phase B adds classification)
+  - [x] Risk Tier column (populated by Sub-phase B with color-coded tiers, tentative/override labels, and hover reasoning)
   - [x] Data Flows section (renders when correlation is populated — currently deferred)
   - [x] EU AI Act Compliance placeholder (populated by Sub-phases B and C)
   - [x] Empty state for repos with no AI detected

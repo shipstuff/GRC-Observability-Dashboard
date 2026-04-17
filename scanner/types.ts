@@ -55,12 +55,17 @@ export interface ArtifactStatus {
   incidentResponsePlan: "present" | "missing";
 }
 
+export type AIRiskTier = "prohibited" | "high" | "limited" | "minimal" | "unknown";
+
 export interface AISystem {
   provider: string;
   sdk: string;
   location: string;
   category: "inference" | "training" | "vector-db" | "framework" | "self-hosted";
   dataFlows: string[];
+  riskTier?: AIRiskTier;
+  riskTierSource?: "heuristic" | "override";
+  riskReasoning?: string;
 }
 
 export interface PolicyUrlsManifest {
