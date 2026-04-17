@@ -50,46 +50,84 @@ const LOW_SIGNAL_SEGMENTS = [
   "fixtures",
 ];
 
-function matchKeyword(location: string, keywords: string[]): string | null {
-  const lower = location.toLowerCase();
-  for (const kw of keywords) {
-    if (lower.includes(kw)) return kw;
+interface KeywordHit {
+  path: string;
+  keyword: string;
+}
+
+function collectPaths(s: AISystem): string[] {
+  const paths = [s.location, ...(s.usageLocations ?? [])];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const p of paths) {
+    if (p && !seen.has(p)) {
+      seen.add(p);
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+function findKeyword(paths: string[], keywords: string[]): KeywordHit | null {
+  for (const path of paths) {
+    const lower = path.toLowerCase();
+    for (const kw of keywords) {
+      if (lower.includes(kw)) return { path, keyword: kw };
+    }
   }
   return null;
 }
 
-function matchPathSegment(location: string, segments: string[]): string | null {
-  const lower = location.toLowerCase().replace(/\\/g, "/");
-  const parts = lower.split("/");
-  for (const seg of segments) {
-    if (parts.includes(seg)) return seg;
-    if (lower.endsWith(`.${seg}.ts`) || lower.endsWith(`.${seg}.js`)) return seg;
+function findPathSegment(paths: string[], segments: string[]): KeywordHit | null {
+  for (const path of paths) {
+    const lower = path.toLowerCase().replace(/\\/g, "/");
+    const parts = lower.split("/");
+    for (const seg of segments) {
+      if (parts.includes(seg)) return { path, keyword: seg };
+      if (lower.endsWith(`.${seg}.ts`) || lower.endsWith(`.${seg}.js`)) return { path, keyword: seg };
+    }
   }
   return null;
+}
+
+// "Substantive usage" = a source path outside test/tooling directories. Only
+// `usageLocations` counts (dependency-manifest paths like package.json do NOT
+// count either way — they signal a declared dependency, not real use).
+function hasSubstantiveUsage(usageLocations: string[] | undefined): boolean {
+  if (!usageLocations || usageLocations.length === 0) return false;
+  for (const path of usageLocations) {
+    if (!findPathSegment([path], LOW_SIGNAL_SEGMENTS)) return true;
+  }
+  return false;
 }
 
 function classifyOne(s: AISystem): AISystem {
-  const prohibited = matchKeyword(s.location, PROHIBITED_KEYWORDS);
+  const paths = collectPaths(s);
+
+  const prohibited = findKeyword(paths, PROHIBITED_KEYWORDS);
   if (prohibited) {
     return {
       ...s,
       riskTier: "prohibited",
       riskTierSource: "heuristic",
-      riskReasoning: `Path includes "${prohibited}" — potentially prohibited under EU AI Act Article 5. Verify intended use and override if misclassified.`,
+      riskReasoning: `"${prohibited.path}" includes "${prohibited.keyword}" — potentially prohibited under EU AI Act Article 5. Verify intended use and override if misclassified.`,
     };
   }
 
-  const highRisk = matchKeyword(s.location, HIGH_RISK_KEYWORDS);
+  const highRisk = findKeyword(paths, HIGH_RISK_KEYWORDS);
   if (highRisk) {
     return {
       ...s,
       riskTier: "high",
       riskTierSource: "heuristic",
-      riskReasoning: `Path includes "${highRisk}" — maps to EU AI Act Annex III high-risk domains. Requires FRIA, model card, and human oversight if deployed in the EU.`,
+      riskReasoning: `"${highRisk.path}" includes "${highRisk.keyword}" — maps to EU AI Act Annex III high-risk domains. Requires FRIA, model card, and human oversight if deployed in the EU.`,
     };
   }
 
-  const lowSignal = matchPathSegment(s.location, LOW_SIGNAL_SEGMENTS);
+  const lowSignalHit = findPathSegment(s.usageLocations ?? [], LOW_SIGNAL_SEGMENTS);
+  // Only downgrade when there is NO substantive usage path — a system used in
+  // both tests and real source should still classify as "limited".
+  const lowSignalOnly = lowSignalHit !== null && !hasSubstantiveUsage(s.usageLocations);
 
   switch (s.category) {
     case "training":
@@ -118,12 +156,12 @@ function classifyOne(s: AISystem): AISystem {
 
     case "framework":
     case "inference": {
-      if (lowSignal) {
+      if (lowSignalOnly && lowSignalHit) {
         return {
           ...s,
           riskTier: "minimal",
           riskTierSource: "heuristic",
-          riskReasoning: `Located in "${lowSignal}" — likely dev tooling or internal use, not a user-facing AI feature.`,
+          riskReasoning: `Usage confined to "${lowSignalHit.keyword}" paths (e.g. "${lowSignalHit.path}") — likely dev tooling or internal use, not a user-facing AI feature.`,
         };
       }
       return {
