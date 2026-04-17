@@ -1,0 +1,105 @@
+# Model Card — {{system.provider}}
+
+**System under this card:** {{system.provider}} via `{{system.sdk}}`
+**Category:** {{system.category}}
+**Risk tier (EU AI Act):** {{system.riskTier}}{{#if system.isOverride}} — declared in config{{else}} — heuristic classification{{/if}}
+**EU market:** {{#if system.euMarket}}yes{{else}}no{{/if}}
+**Deployer:** {{config.ownerName}} ({{config.contactEmail}})
+
+This document is required by EU AI Act **Article 11** for high-risk AI systems. It is written from the perspective of {{config.ownerName}} as the *deployer* integrating {{system.provider}}'s model into {{config.siteName}}. The *provider* (upstream model developer) maintains their own model card with internal architecture details; this card covers how {{config.siteName}} uses the system.
+
+---
+
+## 1. Intended Purpose
+
+Our deployment of {{system.provider}} is used for: **{{system.purpose}}**.
+
+Intended users: visitors to {{config.siteUrl}} who opt in to AI-powered features.
+
+Out of scope: any use not documented in this card, the AI Usage Policy, or the Terms of Service. In particular, the system is **not** used for decisions about employment, credit, health, education outcomes, or law-enforcement activity.
+
+---
+
+## 2. System Location in the Codebase
+
+- **Primary detection:** `{{system.location}}`
+{{#if system.usageLocations}}
+- **Source files using this provider:**
+  {{#each system.usageLocations}}
+  - `{{this}}`
+  {{/each}}
+{{/if}}
+
+---
+
+## 3. Inputs and Outputs
+
+**Inputs:** {{#if hasInputs}}prompts and user-provided context from {{config.siteName}} features documented in the AI Usage Policy{{else}}minimal prompts triggered by specific user actions{{/if}}. We do not send passwords, payment information, government IDs, health records, or data about third parties.
+
+**Outputs:** text (and where applicable, images) returned to the user in the feature's UI. Outputs carry an AI-generated label where shown.
+
+---
+
+## 4. Performance and Accuracy
+
+Accuracy claims of the underlying model are owned by {{system.provider}} and documented in their model card / system card. We rely on those claims and apply the following deployer-side checks:
+
+- **Output validation:** responses are not executed as code; text outputs are rendered as text only.
+- **Rate limiting:** requests are rate-limited per user to bound the blast radius of malformed or malicious inputs.
+- **Manual spot-checks:** outputs are reviewed periodically as part of site maintenance.
+
+Quantitative benchmarks against our specific use case have not been established; we do not claim specific accuracy percentages for our integration.
+
+---
+
+## 5. Human Oversight (EU AI Act Article 14)
+
+- **Before deployment:** the integration is reviewed via pull request under our repository's branch-protection rules (required reviewer count surfaced by the scanner).
+- **At runtime:** {{config.ownerName}} has the ability to immediately disable the feature via a deployment push that removes the call site or an environment-variable kill switch.
+- **After output:** any user can request human review of a specific AI-produced output by contacting [{{config.contactEmail}}](mailto:{{config.contactEmail}}).
+
+---
+
+## 6. Risk Management (EU AI Act Article 9)
+
+Known risks of deploying {{system.provider}} at {{config.siteName}}:
+
+- **Hallucination** — the model can produce confident-but-wrong output. Mitigation: outputs are labelled as AI-generated; users are advised to verify safety-critical information independently.
+- **Injection** — user input could attempt to steer the model against its instructions. Mitigation: system prompts are server-side, not user-editable; outputs are not passed to downstream tools without validation.
+- **Data leakage** — sending user input to a third-party model provider is itself a data flow. Mitigation: documented in the AI Usage Policy; we do not opt in to provider training data collection where an opt-out is offered.
+- **Availability** — provider outages disable the AI feature but do not disable the rest of the site.
+{{#if system.isProhibitedRisk}}
+- **Misuse for prohibited practices** — the risk tier was heuristically classified as prohibited. Action required: review use and either refactor the feature or declare the correct risk_tier under ai_systems in .grc/config.yml.
+{{/if}}
+
+---
+
+## 7. Data Governance (EU AI Act Article 10)
+
+This model card describes a *deployer* integration; training data is held by {{system.provider}}. For our inputs:
+
+- **Source:** directly from users, in real time, only when they use an AI-powered feature.
+- **Lawful basis:** consent — by using the feature, the user consents to the input being sent to {{system.provider}} for processing.
+- **Bias checks:** no systematic bias testing has been performed at the integration layer; we rely on the provider's own fairness evaluations.
+
+---
+
+## 8. Logging and Record Keeping (EU AI Act Article 12)
+
+Request logs for this integration include: timestamp, request hash, provider, latency, success / failure. Input and output content are **not** logged by default to minimize data retention. Logs are retained for {{config.logRetentionDays}} days.
+
+---
+
+## 9. Incident Response
+
+AI-specific incidents (harmful output, discrimination, malfunction affecting a user's rights) are handled under our [Incident Response Plan](./incident-response-plan.md). {{#if system.euMarket}}For this system, placed on the EU market, serious incidents are additionally reported to the relevant market surveillance authority under EU AI Act Article 73 without undue delay.{{/if}}
+
+---
+
+## 10. Version and Change History
+
+This card is regenerated on every scan. Changes to the integration (provider swap, new data sent, tier change) show up in commits to the repository hosting {{config.siteName}}. Git history is the authoritative change log.
+
+---
+
+*Model card generated: {{scanDate}} — Branch: `{{branch}}` ({{commit}})*

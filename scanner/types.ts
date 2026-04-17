@@ -53,6 +53,22 @@ export interface ArtifactStatus {
   securityTxt: "present" | "missing";
   vulnerabilityDisclosure: "present" | "missing";
   incidentResponsePlan: "present" | "missing";
+  /**
+   * Article 50 AI transparency policy. "not-applicable" when no AI systems
+   * are detected; otherwise "present" or "missing" based on the file.
+   */
+  aiUsagePolicy?: "present" | "missing" | "not-applicable";
+  /**
+   * Article 11 model cards. "present" means at least one card file exists
+   * under `<outputDir>/model-cards/`; "not-applicable" when no high-risk
+   * AI systems are detected.
+   */
+  modelCards?: "present" | "missing" | "not-applicable";
+  /**
+   * Article 27 Fundamental Rights Impact Assessment. "not-applicable"
+   * unless a high-risk system is placed on the EU market.
+   */
+  fria?: "present" | "missing" | "not-applicable";
 }
 
 export type AIRiskTier = "prohibited" | "high" | "limited" | "minimal" | "unknown";

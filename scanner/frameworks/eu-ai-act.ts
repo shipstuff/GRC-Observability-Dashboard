@@ -134,12 +134,16 @@ export const EU_AI_ACT_CONTROLS: AIFrameworkControl[] = [
     description: "Providers of high-risk AI must maintain technical documentation (model card, system description, training data, performance, known limits) before placing on the market.",
     check: (m) => {
       if (highRiskSystems(m).length === 0) return "not-applicable";
+      if (m.artifacts.modelCards === "present") return "partial";
       return "fail";
     },
     evidence: (m) => {
       const hr = highRiskSystems(m);
       if (hr.length === 0) return "No high-risk AI systems detected — technical documentation not required.";
-      return `No model card artifact generated. Required for: ${listProviders(hr)}. Sub-phase D of the scanner will produce a model-card.md per high-risk system.`;
+      if (m.artifacts.modelCards === "present") {
+        return `Model card templates generated in model-cards/ for high-risk systems: ${listProviders(hr)}. Complete the placeholder sections (intended purpose, accuracy metrics, specific oversight measures) before considering this article fully satisfied.`;
+      }
+      return `No model card artifact present. Required for: ${listProviders(hr)}. Re-run the scanner with AI systems detected to generate templates at <output_dir>/model-cards/.`;
     },
   },
 
@@ -203,12 +207,16 @@ export const EU_AI_ACT_CONTROLS: AIFrameworkControl[] = [
     description: "Deployers of high-risk AI placed on the EU market in certain sectors must perform a FRIA before first use.",
     check: (m) => {
       if (euMarketHighRisk(m).length === 0) return "not-applicable";
+      if (m.artifacts.fria === "present") return "partial";
       return "fail";
     },
     evidence: (m) => {
       const scoped = euMarketHighRisk(m);
       if (scoped.length === 0) return "No EU-market high-risk AI systems detected — FRIA not required.";
-      return `FRIA required for EU-market high-risk systems: ${listProviders(scoped)}. Sub-phase D of the scanner will generate a fria.md template; until then no FRIA artifact is present.`;
+      if (m.artifacts.fria === "present") {
+        return `FRIA template generated at fria.md for EU-market high-risk systems: ${listProviders(scoped)}. The template contains placeholder sections (affected persons, specific risks of harm, oversight measures) that must be completed by a human and signed before first use.`;
+      }
+      return `FRIA required for EU-market high-risk systems: ${listProviders(scoped)}. Scanner will generate a fria.md template on the next run.`;
     },
   },
 
@@ -260,18 +268,22 @@ export const EU_AI_ACT_CONTROLS: AIFrameworkControl[] = [
     description: "Users interacting with AI systems, or receiving AI-generated content (text, image, audio, video), must be informed.",
     check: (m) => {
       if (transparencyScopeSystems(m).length === 0) return "not-applicable";
+      if (m.artifacts.aiUsagePolicy === "present") return "pass";
       if (m.artifacts.termsOfService === "missing" && m.artifacts.privacyPolicy === "missing") return "fail";
       return "partial";
     },
     evidence: (m) => {
       const scope = transparencyScopeSystems(m);
       if (scope.length === 0) return "No user-facing AI systems detected — Article 50 does not apply.";
+      if (m.artifacts.aiUsagePolicy === "present") {
+        return `AI usage policy generated and present at ai-usage-policy.md, listing all ${scope.length} user-facing AI system(s) and the transparency obligations for each.`;
+      }
       const tos = m.artifacts.termsOfService;
       const priv = m.artifacts.privacyPolicy;
       if (tos === "missing" && priv === "missing") {
-        return "No ToS or privacy policy present to declare AI use. Required for: " + listProviders(scope);
+        return "No ToS, privacy policy, or AI usage policy present to declare AI use. Required for: " + listProviders(scope);
       }
-      return `Terms of service: ${tos}; privacy policy: ${priv}. Verify they explicitly disclose AI use and, where applicable, label AI-generated content (deepfakes, chatbots, synthetic media). Required for: ${listProviders(scope)}`;
+      return `Terms of service: ${tos}; privacy policy: ${priv}. No dedicated AI usage policy detected — the scanner will generate one on the next run when AI systems are present. Required for: ${listProviders(scope)}`;
     },
   },
 

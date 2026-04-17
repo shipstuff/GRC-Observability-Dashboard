@@ -56,3 +56,15 @@ export async function fileExists(filePath: string): Promise<boolean> {
 export function relativePath(repoPath: string, fullPath: string): string {
   return fullPath.replace(repoPath + "/", "");
 }
+
+/**
+ * Shallow list of entries in a directory. Returns an empty array when the
+ * directory does not exist, so callers don't need to gate on fileExists.
+ */
+export async function listDirectory(dir: string): Promise<string[]> {
+  try {
+    return await readdir(dir);
+  } catch {
+    return [];
+  }
+}

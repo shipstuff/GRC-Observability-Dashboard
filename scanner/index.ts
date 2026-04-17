@@ -15,7 +15,7 @@ import { scanAISystems } from "./rules/ai-systems.js";
 import { classifyAISystems, applyAISystemOverrides } from "./rules/ai-risk-classifier.js";
 import { ScanContext, Manifest } from "./types.js";
 import { loadConfig } from "./config.js";
-import { renderPrivacyPolicy, renderTermsOfService, renderVulnerabilityDisclosure, renderIncidentResponsePlan } from "./render.js";
+import { renderPrivacyPolicy, renderTermsOfService, renderVulnerabilityDisclosure, renderIncidentResponsePlan, renderAIUsagePolicy, renderModelCard, renderFRIA, aiSystemSlug } from "./render.js";
 import { generateSecurityTxt } from "./generators/security-txt.js";
 import { generateHeaderRecommendations, generateHeaderReport } from "./generators/security-headers.js";
 import { assessRisks, generateRiskAssessment } from "./generators/risk-assessment.js";
@@ -236,6 +236,41 @@ async function main() {
   console.log(`📄 Privacy policy written to ${policyPath}`);
   console.log(`📄 Terms of service written to ${tosPath}`);
 
+  // AI artifacts (Sub-phase D) — only generated when there are matching AI
+  // systems in the manifest. AI usage policy is produced whenever any AI
+  // system is detected (Article 50 transparency). Model cards are produced
+  // per high-risk/prohibited system (Article 11). FRIA is produced only when
+  // a high-risk system is placed on the EU market (Article 27).
+  const aiSystems = manifest.aiSystems;
+  const highRiskSystems = aiSystems.filter(s => s.riskTier === "high" || s.riskTier === "prohibited");
+  const euMarketHighRiskSystems = highRiskSystems.filter(s => s.euMarket === true);
+
+  if (aiSystems.length > 0) {
+    const aiUsagePolicy = await renderAIUsagePolicy(renderCtx);
+    const aiUsagePath = resolve(policiesDir, "ai-usage-policy.md");
+    await writeFile(aiUsagePath, aiUsagePolicy, "utf-8");
+    console.log(`📄 AI usage policy written to ${aiUsagePath}`);
+  }
+
+  if (highRiskSystems.length > 0) {
+    const modelCardsDir = resolve(policiesDir, "model-cards");
+    await mkdir(modelCardsDir, { recursive: true });
+    for (const system of highRiskSystems) {
+      const slug = aiSystemSlug(system);
+      const card = await renderModelCard(renderCtx, system);
+      const cardPath = resolve(modelCardsDir, `${slug}.md`);
+      await writeFile(cardPath, card, "utf-8");
+      console.log(`📄 Model card written to ${cardPath}`);
+    }
+  }
+
+  if (euMarketHighRiskSystems.length > 0) {
+    const fria = await renderFRIA(renderCtx);
+    const friaPath = resolve(policiesDir, "fria.md");
+    await writeFile(friaPath, fria, "utf-8");
+    console.log(`📄 FRIA written to ${friaPath}`);
+  }
+
   // Now that policies exist on disk, run scanArtifacts to populate the
   // manifest with authoritative file-presence data. This used to run
   // during scan() but that was BEFORE the writes, so on fresh repos it
@@ -248,7 +283,7 @@ async function main() {
     commit: manifest.commit,
     siteUrl,
   };
-  manifest.artifacts = await scanArtifacts(ctxForArtifacts, config.outputDir);
+  manifest.artifacts = await scanArtifacts(ctxForArtifacts, config.outputDir, manifest.aiSystems);
 
   // Write manifest LAST so it reflects everything the scanner did.
   const manifestPath = resolve(grcDir, "manifest.yml");
