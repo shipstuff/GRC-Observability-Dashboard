@@ -438,6 +438,7 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
           <div class="tab" data-url="/nist/${owner}/${name}" onclick="switchTab('${safeId}','${owner}','${name}','nist',this)">NIST CSF</div>
           <div class="tab" data-url="/branches/${owner}/${name}" onclick="switchTab('${safeId}','${owner}','${name}','branches',this)">BRANCHES</div>
           <div class="tab" data-url="/trends/${owner}/${name}" onclick="switchTab('${safeId}','${owner}','${name}','trends',this)">TRENDS</div>
+          <div class="tab" data-url="/ai/${owner}/${name}" onclick="switchTab('${safeId}','${owner}','${name}','ai',this)">AI</div>
         </div>
         <div id="panel-${safeId}" hx-get="/repo/${owner}/${name}" hx-trigger="load"></div>
       </div>
@@ -746,6 +747,69 @@ export function renderTrendChart(history: HistoryEntry[], repo: string, branch: 
   </div>`;
 
   html += `<div style="font-size:7px;color:#666;margin-top:6px;letter-spacing:1px;">LEFT AXIS: % COMPLIANCE // <span style="color:#ff0040">RIGHT AXIS: VULN COUNT</span> // HOVER TO INSPECT</div>`;
+
+  html += `</div>`;
+  return html;
+}
+
+export function renderAIComplianceView(manifest: Manifest): string {
+  const ai = manifest.aiSystems || [];
+
+  let html = `<div class="detail">`;
+  html += `<h3>AI SYSTEMS // ${ai.length} DETECTED</h3>`;
+
+  if (ai.length === 0) {
+    html += `<p style="color:#666;font-size:8px;padding:16px 0;">No AI systems detected in this repo. The scanner checks package.json, requirements.txt, pyproject.toml, and outbound API calls.</p>`;
+    html += `</div>`;
+    return html;
+  }
+
+  // Systems table
+  html += `<table><colgroup><col style="width:22%"><col style="width:18%"><col style="width:15%"><col style="width:30%"><col style="width:15%"></colgroup>`;
+  html += `<tr><th>PROVIDER</th><th>SDK</th><th>CATEGORY</th><th>LOCATION</th><th>RISK TIER</th></tr>`;
+  for (const s of ai) {
+    const categoryColor = s.category === "inference" ? "#00ffff"
+      : s.category === "training" ? "#ff00ff"
+      : s.category === "vector-db" ? "#ffff00"
+      : s.category === "framework" ? "#39ff14"
+      : "#888";
+
+    html += `<tr>`;
+    html += `<td style="color:#00ffff">${esc(s.provider)}</td>`;
+    html += `<td>${esc(s.sdk)}</td>`;
+    html += `<td style="color:${categoryColor}">${esc(s.category)}</td>`;
+    html += `<td><code>${esc(s.location)}</code></td>`;
+    html += `<td style="color:#555">TBD</td>`;
+    html += `</tr>`;
+  }
+  html += `</table>`;
+
+  // Category legend
+  html += `<div style="font-size:7px;color:#666;margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;">`;
+  html += `<span><span style="color:#00ffff">\u25A0</span> inference</span>`;
+  html += `<span><span style="color:#ff00ff">\u25A0</span> training</span>`;
+  html += `<span><span style="color:#ffff00">\u25A0</span> vector-db</span>`;
+  html += `<span><span style="color:#39ff14">\u25A0</span> framework</span>`;
+  html += `<span><span style="color:#888">\u25A0</span> self-hosted</span>`;
+  html += `</div>`;
+
+  // Data flows section (populates when forms/endpoints correlation is built)
+  const hasFlows = ai.some(s => s.dataFlows && s.dataFlows.length > 0);
+  if (hasFlows) {
+    html += `<h3>DATA FLOWS</h3>`;
+    html += `<table><colgroup><col style="width:25%"><col style="width:75%"></colgroup>`;
+    html += `<tr><th>AI SYSTEM</th><th>DATA SENT</th></tr>`;
+    for (const s of ai) {
+      if (s.dataFlows && s.dataFlows.length > 0) {
+        html += `<tr><td style="color:#00ffff">${esc(s.provider)}</td><td>${esc(s.dataFlows.join(", "))}</td></tr>`;
+      }
+    }
+    html += `</table>`;
+  }
+
+  // Placeholder sections for future sub-phases
+  html += `<h3>EU AI ACT COMPLIANCE</h3>`;
+  html += `<p style="color:#555;font-size:8px;padding:8px 0;">Risk classification and framework mapping coming in Sub-phases B and C. Each detected system will be classified into EU AI Act risk tiers (prohibited / high / limited / minimal) with configurable overrides.</p>`;
 
   html += `</div>`;
   return html;
