@@ -765,7 +765,7 @@ export function renderAIComplianceView(manifest: Manifest): string {
   }
 
   // Systems table
-  html += `<table><colgroup><col style="width:22%"><col style="width:18%"><col style="width:15%"><col style="width:30%"><col style="width:15%"></colgroup>`;
+  html += `<table><colgroup><col style="width:20%"><col style="width:16%"><col style="width:13%"><col style="width:28%"><col style="width:23%"></colgroup>`;
   html += `<tr><th>PROVIDER</th><th>SDK</th><th>CATEGORY</th><th>LOCATION</th><th>RISK TIER</th></tr>`;
   for (const s of ai) {
     const categoryColor = s.category === "inference" ? "#00ffff"
@@ -774,15 +774,36 @@ export function renderAIComplianceView(manifest: Manifest): string {
       : s.category === "framework" ? "#39ff14"
       : "#888";
 
+    const tier = s.riskTier || "unknown";
+    const tierColor = tier === "prohibited" ? "#ff0040"
+      : tier === "high" ? "#ff8c00"
+      : tier === "limited" ? "#ffff00"
+      : tier === "minimal" ? "#39ff14"
+      : "#888";
+    const overridden = s.riskTierSource === "override";
+    const sourceMark = overridden
+      ? `<span style="color:#888;font-size:7px;" title="Set by override in .grc/config.yml"> \u2605 OVERRIDE</span>`
+      : `<span style="color:#555;font-size:7px;"> TENTATIVE</span>`;
+    const reasoningAttr = s.riskReasoning ? ` title="${esc(s.riskReasoning)}"` : "";
+
     html += `<tr>`;
     html += `<td style="color:#00ffff">${esc(s.provider)}</td>`;
     html += `<td>${esc(s.sdk)}</td>`;
     html += `<td style="color:${categoryColor}">${esc(s.category)}</td>`;
     html += `<td><code>${esc(s.location)}</code></td>`;
-    html += `<td style="color:#555">TBD</td>`;
+    html += `<td style="color:${tierColor}"${reasoningAttr}>${esc(tier)}${sourceMark}</td>`;
     html += `</tr>`;
   }
   html += `</table>`;
+
+  // Tier legend + override pointer
+  html += `<div style="font-size:7px;color:#666;margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;">`;
+  html += `<span><span style="color:#ff0040">\u25A0</span> prohibited (Art. 5)</span>`;
+  html += `<span><span style="color:#ff8c00">\u25A0</span> high (Annex III)</span>`;
+  html += `<span><span style="color:#ffff00">\u25A0</span> limited (Art. 50)</span>`;
+  html += `<span><span style="color:#39ff14">\u25A0</span> minimal</span>`;
+  html += `</div>`;
+  html += `<p style="color:#666;font-size:7px;margin-top:6px;">Classifications are heuristic and tentative. Hover a tier for reasoning. Override in <code>.grc/config.yml</code> via <code>ai_systems:</code> (location, risk_tier, purpose, eu_market).</p>`;
 
   // Category legend
   html += `<div style="font-size:7px;color:#666;margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;">`;
@@ -807,9 +828,9 @@ export function renderAIComplianceView(manifest: Manifest): string {
     html += `</table>`;
   }
 
-  // Placeholder sections for future sub-phases
+  // Placeholder for Sub-phase C (framework mapping + scoring)
   html += `<h3>EU AI ACT COMPLIANCE</h3>`;
-  html += `<p style="color:#555;font-size:8px;padding:8px 0;">Risk classification and framework mapping coming in Sub-phases B and C. Each detected system will be classified into EU AI Act risk tiers (prohibited / high / limited / minimal) with configurable overrides.</p>`;
+  html += `<p style="color:#555;font-size:8px;padding:8px 0;">Per-article obligation mapping and compliance scoring arrive in Sub-phase C. Risk tiers above feed into Article 6 / Annex III; high-risk systems additionally trigger FRIA (Art. 27), model card (Art. 11), and registration (Art. 60) obligations.</p>`;
 
   html += `</div>`;
   return html;

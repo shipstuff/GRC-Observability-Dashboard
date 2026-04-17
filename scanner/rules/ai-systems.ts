@@ -164,25 +164,83 @@ export async function scanAISystems(ctx: ScanContext): Promise<AISystem[]> {
     }
   }
 
-  // 3. Scan code for outbound AI API calls (catches usage without SDK imports)
+  // 3. Scan code for SDK imports and outbound AI API calls to build a
+  //    provider → Set<source file> map. This feeds the risk classifier so it
+  //    can match domain keywords (e.g. "hiring", "credit") against real source
+  //    paths rather than dependency manifests like package.json.
   const files = await walkFiles(ctx.repoPath, CODE_EXTENSIONS);
+
+  interface UsageRule {
+    provider: string;
+    regex: RegExp;
+  }
+  const usageRules: UsageRule[] = [];
+
+  // Node SDK names in import/require/dynamic-import strings.
+  for (const [sdk, meta] of Object.entries(KNOWN_AI_PACKAGES)) {
+    const escaped = sdk.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    usageRules.push({
+      provider: meta.provider,
+      regex: new RegExp(`(?:from\\s+|require\\s*\\(\\s*|import\\s*\\(\\s*)["'\`]${escaped}["'\`]`, "g"),
+    });
+  }
+
+  // Python import statements: `import openai`, `from openai import ...`.
+  for (const [sdk, meta] of Object.entries(pyPackages)) {
+    const importName = sdk.replace(/-client$/, "").replace(/-/g, "_");
+    const escaped = importName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    usageRules.push({
+      provider: meta.provider,
+      regex: new RegExp(`(?:^|\\n)\\s*(?:from\\s+${escaped}|import\\s+${escaped})\\b`, "g"),
+    });
+  }
+
+  // Outbound API URL patterns.
+  for (const { pattern, provider } of AI_API_PATTERNS) {
+    usageRules.push({ provider, regex: new RegExp(pattern.source, pattern.flags) });
+  }
+
+  const usageByProvider = new Map<string, Set<string>>();
   for (const file of files) {
     const content = await readFileContent(file);
-    for (const { pattern, provider, category } of AI_API_PATTERNS) {
-      pattern.lastIndex = 0;
-      if (pattern.test(content) && !seen.has(`api:${provider}`)) {
-        seen.add(`api:${provider}`);
-        // Only add if we didn't already find this provider via package.json
-        if (!seen.has(provider)) {
-          systems.push({
-            provider,
-            sdk: "direct API call",
-            location: relativePath(ctx.repoPath, file),
-            category,
-            dataFlows: [],
-          });
+    const rel = relativePath(ctx.repoPath, file);
+    for (const rule of usageRules) {
+      rule.regex.lastIndex = 0;
+      if (rule.regex.test(content)) {
+        let set = usageByProvider.get(rule.provider);
+        if (!set) {
+          set = new Set<string>();
+          usageByProvider.set(rule.provider, set);
         }
+        set.add(rel);
       }
+    }
+  }
+
+  // Create entries for providers detected only via outbound API URLs (no SDK
+  // in any manifest). Preserves the original behavior while taking advantage
+  // of the full usage map.
+  for (const { provider, category } of AI_API_PATTERNS) {
+    if (seen.has(provider)) continue;
+    const locations = usageByProvider.get(provider);
+    if (!locations || locations.size === 0) continue;
+    seen.add(provider);
+    const sorted = Array.from(locations).sort();
+    systems.push({
+      provider,
+      sdk: "direct API call",
+      location: sorted[0]!,
+      category,
+      dataFlows: [],
+    });
+  }
+
+  // Attach usage locations to every detected system so the classifier can see
+  // the real source paths, not just the manifest path.
+  for (const sys of systems) {
+    const locs = usageByProvider.get(sys.provider);
+    if (locs && locs.size > 0) {
+      sys.usageLocations = Array.from(locs).sort();
     }
   }
 

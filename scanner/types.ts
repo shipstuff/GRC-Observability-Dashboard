@@ -55,12 +55,23 @@ export interface ArtifactStatus {
   incidentResponsePlan: "present" | "missing";
 }
 
+export type AIRiskTier = "prohibited" | "high" | "limited" | "minimal" | "unknown";
+
 export interface AISystem {
   provider: string;
   sdk: string;
   location: string;
   category: "inference" | "training" | "vector-db" | "framework" | "self-hosted";
   dataFlows: string[];
+  /**
+   * Source files where this provider appears to be used (imports, require calls,
+   * or outbound API URLs). Distinct from `location`, which typically points at a
+   * dependency manifest. The risk classifier scans these paths for domain keywords.
+   */
+  usageLocations?: string[];
+  riskTier?: AIRiskTier;
+  riskTierSource?: "heuristic" | "override";
+  riskReasoning?: string;
 }
 
 export interface PolicyUrlsManifest {

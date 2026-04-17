@@ -1,6 +1,7 @@
 import { join, isAbsolute, normalize } from "node:path";
 import { readFileContent, fileExists } from "./utils.js";
 import { parse } from "yaml";
+import type { AIRiskTier } from "./types.js";
 
 /**
  * Validates output_dir config value. Must be a non-empty relative path
@@ -46,6 +47,19 @@ export interface PolicyUrls {
   securityTxt?: string;
 }
 
+/**
+ * User-supplied override for a detected AI system. Matched against manifest
+ * entries by `location` (required) and optionally `name` (matches AISystem.sdk)
+ * for disambiguation when a single file uses multiple providers.
+ */
+export interface AISystemOverride {
+  location: string;
+  name?: string;
+  riskTier?: AIRiskTier;
+  purpose?: string;
+  euMarket?: boolean;
+}
+
 export interface SiteConfig {
   siteName: string;
   siteUrl: string;
@@ -58,6 +72,7 @@ export interface SiteConfig {
   outputDir: string;
   policyUrls: PolicyUrls;
   ai: AIConfig;
+  aiSystemOverrides: AISystemOverride[];
 }
 
 const DEFAULTS: SiteConfig = {
@@ -72,7 +87,43 @@ const DEFAULTS: SiteConfig = {
   outputDir: "docs/policies",
   policyUrls: {},
   ai: { enabled: false, provider: "anthropic" },
+  aiSystemOverrides: [],
 };
+
+const VALID_RISK_TIERS: AIRiskTier[] = ["prohibited", "high", "limited", "minimal", "unknown"];
+
+function sanitizeAISystemOverrides(raw: any): AISystemOverride[] {
+  if (!Array.isArray(raw)) return [];
+  const out: AISystemOverride[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const location = typeof entry.location === "string" ? entry.location.trim() : "";
+    if (location.length === 0) {
+      console.warn(`   ⚠ ai_systems override missing required "location" — skipping entry`);
+      continue;
+    }
+    const override: AISystemOverride = { location };
+    if (typeof entry.name === "string" && entry.name.trim().length > 0) {
+      override.name = entry.name.trim();
+    }
+    if (typeof entry.risk_tier === "string") {
+      const tier = entry.risk_tier.trim().toLowerCase() as AIRiskTier;
+      if (VALID_RISK_TIERS.includes(tier)) {
+        override.riskTier = tier;
+      } else {
+        console.warn(`   ⚠ ai_systems override for "${location}" has invalid risk_tier "${entry.risk_tier}" — ignoring tier`);
+      }
+    }
+    if (typeof entry.purpose === "string" && entry.purpose.trim().length > 0) {
+      override.purpose = entry.purpose.trim();
+    }
+    if (typeof entry.eu_market === "boolean") {
+      override.euMarket = entry.eu_market;
+    }
+    out.push(override);
+  }
+  return out;
+}
 
 function sanitizePolicyUrls(raw: any): PolicyUrls {
   if (!raw || typeof raw !== "object") return {};
@@ -119,5 +170,6 @@ export async function loadConfig(repoPath: string): Promise<SiteConfig> {
       enabled: raw.ai?.enabled ?? DEFAULTS.ai.enabled,
       provider: raw.ai?.provider ?? DEFAULTS.ai.provider,
     },
+    aiSystemOverrides: sanitizeAISystemOverrides(raw.ai_systems),
   };
 }

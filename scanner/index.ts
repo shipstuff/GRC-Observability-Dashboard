@@ -12,6 +12,7 @@ import { scanTls } from "./rules/tls.js";
 import { scanArtifacts } from "./rules/artifacts.js";
 import { scanAccessControls, generateAccessControlReport } from "./rules/access-controls.js";
 import { scanAISystems } from "./rules/ai-systems.js";
+import { classifyAISystems, applyAISystemOverrides } from "./rules/ai-risk-classifier.js";
 import { ScanContext, Manifest } from "./types.js";
 import { loadConfig } from "./config.js";
 import { renderPrivacyPolicy, renderTermsOfService, renderVulnerabilityDisclosure, renderIncidentResponsePlan } from "./render.js";
@@ -97,6 +98,13 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     scanAISystems(ctx).then(r => { console.log(`   ✓ AI systems: ${r.length} detected`); return r; }),
   ]);
 
+  // Classify detected AI systems into EU AI Act risk tiers (Sub-phase B).
+  // Heuristic classification runs first, then user overrides from config are applied.
+  const classifiedAISystems = applyAISystemOverrides(
+    classifyAISystems(aiSystems),
+    config.aiSystemOverrides,
+  );
+
   // scanArtifacts is NOT in the parallel block above because it needs to
   // run AFTER the scanner writes policy files to disk. main() handles that
   // ordering and then sets manifest.artifacts from the real filesystem state.
@@ -160,7 +168,7 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     secretsScan: secretsData,
     artifacts,
     accessControls,
-    aiSystems,
+    aiSystems: classifiedAISystems,
     policyUrls,
   };
 
@@ -321,7 +329,8 @@ async function main() {
   if (manifest.aiSystems.length > 0) {
     console.log(`   AI Systems:             ${manifest.aiSystems.length} detected`);
     for (const ai of manifest.aiSystems) {
-      console.log(`     - ${ai.provider} (${ai.category}) via ${ai.sdk}`);
+      const tier = ai.riskTier ? ` [${ai.riskTier}${ai.riskTierSource === "override" ? "*" : ""}]` : "";
+      console.log(`     - ${ai.provider} (${ai.category}) via ${ai.sdk}${tier}`);
     }
   }
   console.log("─────────────────────────────────────────\n");
