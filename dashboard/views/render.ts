@@ -13,6 +13,7 @@ function esc(s: string): string {
 function statusIcon(status: string): string {
   if (status === "present" || status === "generated" || status === "manual" || status === "pass") return '<span class="icon pass">[OK]</span>';
   if (status === "partial") return '<span class="icon warn">[!!]</span>';
+  if (status === "not-applicable") return '<span class="icon na">[--]</span>';
   return '<span class="icon fail">[XX]</span>';
 }
 
@@ -131,6 +132,7 @@ function layout(title: string, content: string, orgName: string = ""): string {
     .icon.pass { color: #39ff14; }
     .icon.warn { color: #ffff00; }
     .icon.fail { color: #ff0040; }
+    .icon.na { color: #555; }
 
     /* Branch dropdown */
     .branch-select {
