@@ -37,10 +37,18 @@ export interface AIFrameworkControl {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function systemsAtOrAbove(m: Manifest, tiers: AISystem["riskTier"][]): AISystem[] {
-  return m.aiSystems.filter(s => s.riskTier && tiers.includes(s.riskTier));
+// Older manifests stored in KV may predate the aiSystems field entirely.
+// All helpers coerce via `?? []` so evaluating an article against a
+// pre-Phase-8 manifest still works — it just sees an empty inventory and
+// all scoped articles report not-applicable.
+function aiSystemsOf(m: Manifest): AISystem[] {
+  return m.aiSystems ?? [];
 }
-const hasAny = (m: Manifest) => m.aiSystems.length > 0;
+
+function systemsAtOrAbove(m: Manifest, tiers: AISystem["riskTier"][]): AISystem[] {
+  return aiSystemsOf(m).filter(s => s.riskTier && tiers.includes(s.riskTier));
+}
+const hasAny = (m: Manifest) => aiSystemsOf(m).length > 0;
 const prohibitedSystems = (m: Manifest) => systemsAtOrAbove(m, ["prohibited"]);
 const highRiskSystems = (m: Manifest) => systemsAtOrAbove(m, ["high", "prohibited"]);
 const transparencyScopeSystems = (m: Manifest) =>
@@ -66,7 +74,7 @@ export const EU_AI_ACT_CONTROLS: AIFrameworkControl[] = [
     check: (m) => hasAny(m) ? "partial" : "not-applicable",
     evidence: (m) =>
       hasAny(m)
-        ? `AI systems detected (${m.aiSystems.length}). AI literacy is a program-level obligation — document the training your developers and deployers receive.`
+        ? `AI systems detected (${aiSystemsOf(m).length}). AI literacy is a program-level obligation — document the training your developers and deployers receive.`
         : "No AI systems detected in this repo.",
   },
 
