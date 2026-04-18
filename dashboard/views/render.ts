@@ -703,7 +703,25 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
   return layout("GRC OBSERVABILITY", statsHtml + searchHtml + `<div class="section"><div class="section-title">Scanned Repos</div>${reposHtml}</div>`, orgName);
 }
 
-export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): string {
+type PolicyServedState = "served" | "unreachable" | "not-configured";
+type PolicyServedMap = Partial<Record<
+  "privacyPolicy" | "termsOfService" | "vulnerabilityDisclosure" | "incidentResponsePlan" | "securityTxt",
+  PolicyServedState
+>>;
+
+export interface ServedState {
+  policyServed?: PolicyServedMap;
+  policyServedCheckedAt?: string;
+}
+
+function servedBadge(state: PolicyServedState | undefined): string {
+  if (state === "served") return `<span class="icon pass">[OK]</span> SERVED`;
+  if (state === "unreachable") return `<span class="icon fail">[XX]</span> UNREACHABLE`;
+  if (state === "not-configured") return `<span class="icon na">[--]</span> NOT CONFIGURED`;
+  return `<span style="color:#444">\u2014</span>`;
+}
+
+export function renderRepoDetail(manifest: Manifest, summary: RepoSummary, served: ServedState = {}): string {
   const dc = manifest.dataCollection;
   const tp = manifest.thirdPartyServices;
   const h = manifest.securityHeaders;
@@ -762,11 +780,52 @@ export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): stri
   html += `<tr><td>Signed Commits</td><td>${ac.signedCommits === true ? '<span class="icon pass">[OK]</span>' : ac.signedCommits === false ? '<span class="icon fail">[XX]</span>' : '<span style="color:#555">\u2014</span>'}</td></tr>`;
   html += `</table>`;
 
+  // Governance artifacts table shows TWO columns per policy: IN REPO
+  // (scanner's file-on-disk state) and SERVED (live-URL state from the last
+  // Check Production click). These are distinct compliance signals — a policy
+  // file can exist in the repo but not be served at its configured URL, and
+  // vice versa.
   html += `<h3>GOVERNANCE ARTIFACTS</h3>`;
-  html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup><tr><th>ARTIFACT</th><th>STATUS</th></tr>`;
+  html += `<table><colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>`;
+  html += `<tr><th>ARTIFACT</th><th>IN REPO</th><th>SERVED</th></tr>`;
   const labels: Record<string, string> = { privacyPolicy:"Privacy Policy", termsOfService:"Terms of Service", securityTxt:"security.txt", vulnerabilityDisclosure:"Vuln Disclosure", incidentResponsePlan:"Incident Response Plan" };
-  for (const [key, label] of Object.entries(labels)) { const val = (manifest.artifacts as any)[key] as string; html += `<tr><td>${label}</td><td>${statusIcon(val)} ${val.toUpperCase()}</td></tr>`; }
-  html += `</table></div>`;
+  for (const [key, label] of Object.entries(labels)) {
+    const val = (manifest.artifacts as any)[key] as string;
+    const servedState = (served.policyServed || {})[key as keyof PolicyServedMap];
+    html += `<tr><td>${label}</td><td>${statusIcon(val)} ${val.toUpperCase()}</td><td>${servedBadge(servedState)}</td></tr>`;
+  }
+  html += `</table>`;
+
+  // AI-specific policies (Phase 8 Sub-phase D). Only render rows whose
+  // artifact field is defined and not "not-applicable", so repos without the
+  // triggering AI scope stay clean.
+  const aiLabels: Record<string, string> = {
+    aiUsagePolicy: "AI Usage Policy",
+    modelCards: "Model Cards",
+    fria: "FRIA",
+  };
+  const aiRows: string[] = [];
+  for (const [key, label] of Object.entries(aiLabels)) {
+    const val = (manifest.artifacts as any)[key] as string | undefined;
+    if (val === undefined || val === "not-applicable") continue;
+    aiRows.push(`<tr><td>${label}</td><td>${statusIcon(val)} ${val.toUpperCase()}</td><td><span style="color:#444">\u2014</span></td></tr>`);
+  }
+  if (aiRows.length > 0) {
+    html += `<h3>AI ARTIFACTS</h3>`;
+    html += `<table><colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>`;
+    html += `<tr><th>ARTIFACT</th><th>IN REPO</th><th>SERVED</th></tr>`;
+    html += aiRows.join("");
+    html += `</table>`;
+  }
+
+  // Freshness footer for the SERVED column.
+  if (served.policyServedCheckedAt) {
+    html += `<p class="note" style="margin-top:8px;font-size:11px;">Served status last checked ${timeAgo(served.policyServedCheckedAt)}. Click <strong>CHECK PRODUCTION</strong> above to refresh. IN REPO reflects the scanner's view of the file on disk at the last scan; SERVED reflects an HTTP GET against the URL declared in <code>.grc/config.yml</code> under <code>policy_urls:</code>.</p>`;
+  } else {
+    html += `<p class="note" style="margin-top:8px;font-size:11px;">SERVED status has never been checked for this repo. Click <strong>CHECK PRODUCTION</strong> above to populate it. Only policies with a URL declared under <code>policy_urls:</code> in <code>.grc/config.yml</code> will be checked; unlisted ones stay as NOT CONFIGURED.</p>`;
+  }
+
+  html += `</div>`;
   return html;
 }
 
@@ -1162,8 +1221,14 @@ export function renderInventoryView(rows: InventoryRow[], orgName: string = ""):
         r.style.display = show ? '' : 'none';
         if (show) visible++;
       });
-      var hdr = document.querySelector('#inventory-table').closest('.detail').querySelector('h3');
-      if (hdr) hdr.textContent = '[ AI SYSTEMS // ' + visible + ' ROWS ]';
+      // The empty-state inventory page renders filter controls but no
+      // #inventory-table, so a reset click must not chain through null.
+      var table = document.querySelector('#inventory-table');
+      if (table) {
+        var detail = table.closest('.detail');
+        var hdr = detail ? detail.querySelector('h3') : null;
+        if (hdr) hdr.textContent = '[ AI SYSTEMS // ' + visible + ' ROWS ]';
+      }
     }
     function resetInventoryFilters() {
       document.getElementById('flt-tier').value = '';
