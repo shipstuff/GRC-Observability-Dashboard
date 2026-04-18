@@ -17,7 +17,7 @@ const DESTRUCTURED_BODY = /const\s*\{([^}]+)\}\s*=\s*req\.body/g;
 const FLASK_POST = /@\w+\.route\s*\(\s*["']([^"']+)["'][^)]*methods\s*=\s*\[.*?["']POST["']/g;
 
 // Generic form data access
-const FORM_DATA = /formData|FormData|form_data|request\.form/g;
+const _FORM_DATA = /formData|FormData|form_data|request\.form/g;
 
 export async function scanEndpoints(ctx: ScanContext): Promise<DataCollectionPoint[]> {
   const files = await walkFiles(ctx.repoPath, CODE_EXTENSIONS);
@@ -47,16 +47,14 @@ export async function scanEndpoints(ctx: ScanContext): Promise<DataCollectionPoi
     if (!hasPostEndpoint) continue;
 
     // Extract field names from req.body access
-    REQ_BODY.lastIndex = 0;
-    while ((match = REQ_BODY.exec(content)) !== null) {
-      const field = match[1] || match[2];
+    for (const bodyMatch of content.matchAll(REQ_BODY)) {
+      const field = bodyMatch[1] || bodyMatch[2];
       if (field) fields.push(field);
     }
 
     // Extract destructured body fields
-    DESTRUCTURED_BODY.lastIndex = 0;
-    while ((match = DESTRUCTURED_BODY.exec(content)) !== null) {
-      const destructured = match[1].split(",").map(s => s.trim().split(":")[0].split("=")[0].trim());
+    for (const destructuredMatch of content.matchAll(DESTRUCTURED_BODY)) {
+      const destructured = destructuredMatch[1].split(",").map(s => s.trim().split(":")[0].split("=")[0].trim());
       fields.push(...destructured.filter(f => f.length > 0));
     }
 

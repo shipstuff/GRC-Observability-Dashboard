@@ -33,7 +33,7 @@ const ADMIN_ROUTE_PATTERNS = [
 ];
 
 // Patterns that indicate sensitive operations without auth context
-const SENSITIVE_OPS = [
+const _SENSITIVE_OPS = [
   { pattern: /process\.env\[|process\.env\./g, label: "env-access" },
   { pattern: /\.exec\s*\(|child_process|spawn\s*\(/g, label: "command-execution" },
   { pattern: /fs\.(?:writeFile|unlink|rmdir|rm)\s*\(/g, label: "filesystem-write" },
@@ -49,7 +49,7 @@ export async function scanAccessControls(ctx: ScanContext): Promise<{
   // Uses the non-admin branches endpoint (returns "protected" boolean)
   // Detailed rules (reviewer count, signed commits) require admin access
   // so we infer what we can from the basic API
-  let controls: AccessControls = {
+  const controls: AccessControls = {
     branchProtection: null,
     requiredReviews: null,
     signedCommits: null,
@@ -175,9 +175,7 @@ export async function scanAccessControls(ctx: ScanContext): Promise<{
 
     // Check for admin/sensitive routes
     for (const { pattern, label } of ADMIN_ROUTE_PATTERNS) {
-      pattern.lastIndex = 0;
-      let match;
-      while ((match = pattern.exec(content)) !== null) {
+      for (const match of content.matchAll(pattern)) {
         const method = match[1].toUpperCase();
         const route = match[2];
 

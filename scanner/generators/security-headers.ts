@@ -16,7 +16,7 @@ export function generateHeaderRecommendations(
   const h = manifest.securityHeaders;
   if (!h) return [];
 
-  const siteUrl = config.siteUrl.replace(/\/$/, "");
+  const _siteUrl = config.siteUrl.replace(/\/$/, "");
   const recommendations: HeaderRecommendation[] = [];
 
   // HSTS
@@ -143,10 +143,11 @@ export function generateHeaderReport(recommendations: HeaderRecommendation[]): s
       lines.push("");
     }
 
-    lines.push("## Express Middleware (copy-paste ready)\n");
+    lines.push("## Express Middleware (starter)\n");
     lines.push("```typescript");
     lines.push(generateExpressMiddleware(missing));
     lines.push("```\n");
+    lines.push("**CSP caveat.** The `Content-Security-Policy` value above is generated from resources visible in the site's root HTML. Third-party CDNs loaded dynamically (unpkg, jsdelivr, cdnjs), inline scripts injected by frameworks, and analytics beacons from SPAs often aren't captured and will need to be added by hand before the policy becomes enforceable. Start by deploying with `Content-Security-Policy-Report-Only` and tighten from there.\n");
 
     lines.push("## Nginx Config (if using reverse proxy)\n");
     lines.push("```nginx");

@@ -454,10 +454,10 @@ Recommended build order:
 - [ ] Vulnerability management deep-dive: CVSS scoring, dev vs prod dep distinction, exploitability vs severity, accepted-risk tracking
 
 ### Dashboard
-- [ ] Authentication on API endpoints (API key validation on POST)
+- [x] Authentication on API endpoints — POST /api/report verifies a GitHub OIDC JWT and asserts the token's `repository` claim matches the manifest (PR #28). Consumer config is one permission line.
 - [ ] Accepted-risk workflow (declare risks as acknowledged in `.grc/config.yml`, dashboard respects and shows as "accepted")
 - [ ] Multi-tenant / multi-org support
-- [ ] Tests — none currently exist
+- [x] Tests — Vitest unit tests cover the pure-logic modules (risk classifier, EU AI Act evaluator + scoring, AI compliance risk generation) plus render-level smoke tests in `scripts/smoke-dashboard.ts`. A full coverage push is still open.
 - Note: auditor evidence export moved to Phase 9 Sub-phase B
 
 ## Phase 11: Blog Content
@@ -479,20 +479,20 @@ These cut across all phases and should be addressed opportunistically.
 ### Unfixed Technical Debt
 - [ ] joeeftekhari.com has 1 critical + 3 high CVEs we haven't addressed. We don't use our own tool's output.
 - [ ] joeeftekhari.com doesn't yet serve policies at public URLs — files exist in `docs/policies/` but no Express routes to serve them. Once routes exist, user will configure `policy_urls` and Check Production will verify them.
-- [ ] No unit tests — smoke tests exist (scripts/smoke-dashboard.ts covers render pipeline) but no assertions beyond "did not throw / no bare 'undefined' in output". A real unit test suite (Vitest or similar) is still open.
-- [x] CI on every PR — `.github/workflows/ci.yml` runs the scanner against this repo and smoke-tests every dashboard render function with both new-shape and old-shape manifest fixtures. Catches regressions like the 2026-04-18 outage.
-- [ ] Lint / type-check still missing — `tsc --noEmit` fights with `verbatimModuleSyntax` + the no-@types/node config the runtime relies on (`tsx` handles this at runtime but `tsc` doesn't). Adding a lint pass is tracked separately.
-- [ ] Documentation in `docs/` has overlapping content across files
-- [ ] Deploy workflow uses `sed` for placeholder injection in wrangler.toml — works but is fragile
+- [x] Unit tests — Vitest covers risk classifier, EU AI Act evaluator + scoring, and AI-compliance risk generation (51 tests). Smoke tests in `scripts/smoke-dashboard.ts` cover render pipelines with both new-shape and old-shape manifests. Broader coverage still welcome but the floor is up.
+- [x] CI on every PR — `.github/workflows/ci.yml` runs lint + unit tests + scanner smoke + dashboard render smoke. Catches regressions like the 2026-04-18 outage.
+- [x] Lint — Biome configured with correctness + suspicious rules (no style churn). Catches unused imports, shadowed vars, assign-in-conditions, etc. Type-check via `tsc --noEmit` still skipped because of tsconfig/runtime mismatch; tracked.
+- [x] Docs — `docs/` cleaned up: `compliance-scope.md` deleted (outdated + duplicated README content), `manifest-spec.md` trimmed to point at `scanner/types.ts` as authoritative, `github-app-badge.md` → `badges.md`, `architecture.md` rewritten to reflect the current Hono/Workers/KV stack (was still referencing Express + Postgres).
+- [ ] Deploy workflow uses `sed` for the KV id placeholder in `wrangler.toml` — works but fragile; `ORG_NAME` + `GRC_AUDIENCE` already moved off `sed` onto `wrangler deploy --var` in PR #30. Last `sed` removed would require either an API call to set the KV binding or a script that rewrites the TOML via a proper parser.
 - [ ] Monorepo support is poor (scans root only, no per-package awareness)
-- [ ] Python support is placeholder-only; Go/Ruby/Java/Rust essentially unsupported
-- [ ] CSP auto-generator only catches HTML-embedded CDN imports (Google Analytics) — misses CDN script tags (unpkg, jsdelivr, cdnjs), so output needs manual review
+- [x] Python support tier documented explicitly in README — ("Language coverage" section calls out that Python has partial coverage and Go/Ruby/Java/Rust are essentially unsupported). Fixing the under-coverage is still open but the claim no longer overpromises.
+- [ ] CSP auto-generator only catches HTML-embedded CDN imports (Google Analytics) — misses CDN script tags (unpkg, jsdelivr, cdnjs), so output needs manual review. README security-headers report now includes an explicit "CSP caveat" paragraph.
 
 ### Unvalidated Claims
 - [x] ~~AI layer has never been run with a real API key~~ — validated with OpenAI gpt-4o-mini, all 4 enhancements work (PR #19)
-- [ ] Open-source setup instructions have never been fork-tested from scratch
-- [ ] "Copy-paste ready" middleware claim overstated (CSP usually requires manual edits)
-- [ ] "Works on any Node/Python/Go repo" claim overstated (Node works, others are placeholder)
+- [x] ~~Open-source setup instructions have never been fork-tested from scratch~~ — dry-ran from a fresh clone (PR #30); found and fixed an ORG_NAME deploy bug in the process.
+- [x] ~~"Copy-paste ready" middleware claim overstated~~ — relabelled to "Express Middleware (starter)" in the generated report with an explicit CSP caveat paragraph about dynamic CDNs.
+- [x] ~~"Works on any Node/Python/Go repo" claim overstated~~ — README now includes a "Language coverage" section saying exactly what works per language (Node mature, Python partial, Go/Ruby/Java/Rust basic regex only).
 
 ## Certification Pairing (recommended for entry-level GRC)
 - CompTIA Security+

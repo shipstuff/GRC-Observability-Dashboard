@@ -16,7 +16,7 @@ On every push or PR, the scanner produces:
 | `security.txt` | `.well-known/` | RFC 9116 security contact file |
 | `risk-assessment.md` | `.grc/` | Likelihood x impact matrix with framework mappings |
 | `nist-csf-report.md` | `.grc/` | 18 NIST CSF controls with SOC 2 + ISO 27001 cross-mapping |
-| `security-headers-report.md` | `.grc/` | Header status + copy-paste fix |
+| `security-headers-report.md` | `.grc/` | Header status + starter-snippet fixes (CSP typically needs manual review) |
 | `access-controls-report.md` | `.grc/` | Branch protection and auth findings |
 
 Reports (`.grc/`) are gitignored and regenerated each scan. Policies (`docs/policies/`, `.well-known/`) are committed to your PR branch so they ship with your code.
@@ -208,7 +208,7 @@ Badge states:
 - `fail NN%` — critical vulnerabilities, detected secrets, or very low compliance
 - `not scanned` — the dashboard has no manifest for that repo/branch yet
 
-GitHub's GitHub App badge UI is a separate static logo upload. See [docs/github-app-badge.md](docs/github-app-badge.md) for the distinction and setup steps.
+GitHub's GitHub App badge UI is a separate static logo upload. See [docs/badges.md](docs/badges.md) for the distinction and setup steps.
 
 ## Scanner
 
@@ -233,6 +233,16 @@ Reports are written to `/path/to/repo/.grc/`. Policies are written to `/path/to/
 - **Security Headers** - CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy (live URL check)
 - **TLS** - HTTPS enforcement, certificate expiry (live URL check)
 - **AI Systems** - detects AI SDKs (OpenAI, Anthropic, Cohere, Gemini, HuggingFace, Mistral, Groq, LangChain, LlamaIndex, Vercel AI SDK), training libs (TensorFlow, PyTorch), vector DBs (Pinecone, Weaviate, ChromaDB, Qdrant), and outbound API calls. Supports Node (`package.json`), Python (`requirements.txt`, `pyproject.toml`), and monorepos.
+
+### Language coverage
+
+The scanner's Node/JavaScript path is the most mature — forms, endpoints, dependencies, secrets, tracking, and AI SDK detection all fully work on `.ts` / `.tsx` / `.js` / `.jsx` / `.mjs` / `.cjs` trees.
+
+**Python** support is partial: `requirements.txt` and `pyproject.toml` are scanned for AI packages and third-party services, but form/endpoint/secret detection only has basic regex coverage. Flask, Django, and FastAPI idioms aren't specifically recognised yet.
+
+**Go, Ruby, Java, Rust, PHP** — not meaningfully supported. Files are walked for secret regexes and outbound AI API URL patterns; nothing else. A repo in any of these languages will scan without erroring but the findings list will be sparse compared to a Node repo.
+
+If you're running the scanner against a non-Node repo, expect partial signal and treat missing findings as absence of evidence, not evidence of absence.
 
 ## AI Enhancements (Optional)
 

@@ -1,4 +1,4 @@
-import { AISystem, AIRiskTier } from "../types.js";
+import { AISystem, } from "../types.js";
 import type { AISystemOverride } from "../config.js";
 
 // EU AI Act Article 5 — prohibited practices. Path keywords that might signal

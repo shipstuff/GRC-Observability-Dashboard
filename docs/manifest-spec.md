@@ -1,90 +1,47 @@
-# Compliance Manifest Specification
+# Manifest Specification
 
-The manifest is the structured output of the GRC scan. It is the single source of truth that drives both generated policies and the dashboard.
+The manifest is the structured output of every scan and the single source of truth for both generated policies and the dashboard. It's a YAML file written to `.grc/manifest.yml` and POSTed to the dashboard on every successful scan.
 
-## Format
+## Authoritative schema
 
-YAML file committed to each repo at `.grc/manifest.yml`. Auto-generated — never hand-edited.
+[`scanner/types.ts`](../scanner/types.ts) is the authoritative schema. The `Manifest` interface in that file defines every field; any doc that duplicates it will drift.
 
-## Schema
+The key top-level fields as of this writing:
 
-```yaml
-# .grc/manifest.yml
-repo: your-org/your-site
-scan_date: 2026-04-08T12:00:00Z
-branch: main
-commit: abc123
+- `repo`, `scanDate`, `branch`, `commit` — identification
+- `dataCollection[]` — forms, endpoints, cookies, tracking
+- `thirdPartyServices[]` — detected third-party data processors with optional DPA URLs
+- `securityHeaders`, `https`, `dependencies` — live-check results (nullable; only populated when a site URL is configured)
+- `secretsScan`, `accessControls`, `artifacts` — static-scan results always populated
+- `aiSystems[]` — detected AI SDKs, frameworks, vector DBs, or outbound AI API calls, each with a risk tier (Phase 8)
+- `policyUrls?` — user-declared URLs for each generated policy on the live site (opt-in)
 
-data_collection:
-  - type: email                    # what kind of data
-    source: contact-form           # how it's collected
-    location: src/routes/contact.ts # where in the code
-    processor: resend              # third-party that handles it
-    retention: transient           # transient | persistent | unknown
+## Format conventions
 
-third_party_services:
-  - name: Resend
-    purpose: email delivery
-    data_shared: [email, name, message_body]
-    dpa_url: https://resend.com/legal/dpa  # Data Processing Agreement
+- **camelCase keys** in both YAML and JSON (matching the TypeScript interface exactly — no snake_case translation).
+- **Optional fields use `undefined` semantics**: absent key means "not scanned" or "not applicable", not "missing".
+- **Live-check fields are nullable**: `securityHeaders`, `https`, `dependencies` are `null` when no site URL is configured or when the live fetch failed.
 
-security_headers:
-  csp: missing | present | partial
-  hsts: missing | present
-  x_frame_options: missing | present
-  x_content_type_options: missing | present
-  referrer_policy: missing | present
-  permissions_policy: missing | present
-
-https:
-  enforced: true | false
-  cert_expiry: 2026-09-15       # date or null
-
-dependencies:
-  critical_vulnerabilities: 0
-  high_vulnerabilities: 2
-  medium_vulnerabilities: 5
-  outdated_packages: 12
-  last_audit: 2026-04-08
-
-secrets_scan:
-  detected: false
-  findings: []                   # list of file:line if detected (redacted)
-
-artifacts:
-  privacy_policy: generated | manual | missing
-  terms_of_service: generated | manual | missing
-  security_txt: present | missing
-  vulnerability_disclosure: present | missing
-  incident_response_plan: present | missing
-
-access_controls:
-  branch_protection: true | false
-  required_reviews: 0           # number of required PR reviews
-  signed_commits: true | false
-
-backup:
-  strategy: none | manual | automated
-  last_verified: null            # date or null
-```
-
-## How the Manifest Drives Policies
-
-The manifest is consumed by Handlebars (or similar) templates:
+## Flow
 
 ```
-manifest.yml + templates/privacy-policy.hbs → public/privacy-policy.html
-manifest.yml + templates/terms-of-service.hbs → public/terms.html
+scanner/index.ts scan pipeline:
+  1. Parallel scan rules populate findings
+  2. Policy templates render against the manifest
+  3. Policy files written to output_dir; artifacts rescanned
+  4. Framework evaluation (NIST CSF, EU AI Act)
+  5. Manifest written to .grc/manifest.yml — last
+  6. Action POSTs the file to the dashboard
 ```
 
-Template logic example: "IF the manifest lists email collection, include the email section with the processor name filled in." No data collection → that section doesn't appear.
+The scanner writes the manifest *last* so it reflects the real filesystem state after policy generation — not a pre-generation snapshot. This matters for the `artifacts` field specifically: it's set from the actual files on disk after rendering, so it correctly reports `"generated"` rather than `"missing"`.
 
-## How the Manifest Feeds the Dashboard
+## Idempotency
 
-The GitHub Action POSTs the manifest to the dashboard API:
+Two consecutive scans against an unchanged repo must produce byte-identical manifests (and byte-identical generated policies). The scanner enforces this by:
 
-```
-manifest.yml → POST https://grc-dashboard.joeeftekhari.com/api/report
-```
+- Excluding `scanDate` from template bodies (git history records timing).
+- Pinning `security.txt` `Expires` to Jan 1 of the next year rather than a rolling expiry.
+- Never including the commit hash inside policy bodies.
 
-The dashboard stores historical manifests to enable trend tracking and branch comparison.
+If you're extending the scanner and a field introduces non-determinism, add a test fixture to `scripts/smoke-dashboard.ts` that would catch the regression, or add a real Vitest unit test.

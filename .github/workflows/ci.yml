@@ -28,6 +28,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Lint — Biome's correctness + suspicious rules only. Style rules are
+      # mostly disabled to avoid a big churn day-one; the goal here is to
+      # catch real bugs (unused imports, shadowed variables, assign-in-cond)
+      # rather than enforce a specific house style.
+      - name: Lint
+        run: npm run lint
+
+      # Unit tests — Vitest covers the pure-logic modules (risk classifier,
+      # EU AI Act evaluator + scoring, AI compliance risk generation) with
+      # focused per-function assertions. Adds meaningful coverage beyond
+      # "did not throw" while still running in milliseconds.
+      - name: Unit tests
+        run: npm test
+
       # Run the scanner against this repo itself. Catches scanner-side
       # regressions end-to-end: scan rules, policy rendering, framework
       # evaluation, and report generation all exercised on a real tree.
@@ -40,4 +54,4 @@ jobs:
       # outage where an older stored manifest took /api/repos and the
       # homepage down with an uncaught TypeError.
       - name: Dashboard render smoke
-        run: npx tsx scripts/smoke-dashboard.ts
+        run: npm run smoke:dashboard

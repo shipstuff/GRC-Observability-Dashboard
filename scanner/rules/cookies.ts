@@ -1,4 +1,4 @@
-import { extname } from "node:path";
+
 import { ScanContext, DataCollectionPoint } from "../types.js";
 import { walkFiles, readFileContent, relativePath } from "../utils.js";
 
