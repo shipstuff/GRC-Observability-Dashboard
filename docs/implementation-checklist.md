@@ -194,13 +194,13 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] Removed personal/draft files from repo
 - [x] Cleaned up outdated docs
 - [x] Deploy workflow injects KV ID and ORG_NAME from secrets/vars at deploy time (not in committed config)
-- [ ] **Validate the fork path end-to-end** — follow the README from a fresh fork and document broken steps
+- [x] **Validate the fork path end-to-end** — dry-ran from a fresh clone: `npm install` (127 packages, 3s, clean), `wrangler dev --local` boots against the placeholder KV id and serves `/health` + `/` correctly. Found a real bug in `.github/workflows/deploy.yml`: the ORG_NAME sed uncommented `ORG_NAME = "..."` but left `[vars]` commented, so the var ended up at top-level TOML and never reached the worker. Fixed by switching ORG_NAME + GRC_AUDIENCE to `wrangler deploy --var`. Added a preflight step that fails fast with a clear message when `CLOUDFLARE_API_TOKEN` or `CLOUDFLARE_KV_ID` is missing. Also fixed `hono` moderate CVE via `npm audit fix`.
 - [x] Add authentication to dashboard API — POST /api/report verifies a GitHub OIDC JWT against GitHub's JWKS and checks that the token's `repository` claim matches the manifest's `repo` field. No shared secret required — consumers add `id-token: write` to workflow permissions and the composite action handles token minting. Dashboard optionally overrides audience via `GRC_AUDIENCE` env var. `GRC_AUTH_BYPASS=1` available for local `wrangler dev` only. `/api/check-production` intentionally left unauthenticated — it's UI-triggered and can only act on already-authenticated stored state.
 
 ### Documentation
-- [ ] Contributing guide
-- [ ] How to add new scan rules
-- [ ] How to add new policy templates
+- [x] Contributing guide — `CONTRIBUTING.md` ships with the dev loop and three extension-point walkthroughs (scan rule, policy template, framework). Linked from the README.
+- [x] How to add new scan rules — in `CONTRIBUTING.md` "Adding a scan rule" section.
+- [x] How to add new policy templates — in `CONTRIBUTING.md` "Adding a policy template" section, including the idempotency rules that keep scans from producing noisy commits.
 
 ## Phase 7: Policy Deployment Flow — DONE
 
