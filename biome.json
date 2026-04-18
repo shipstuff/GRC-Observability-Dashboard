@@ -1,0 +1,57 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
+  "files": {
+    "includes": [
+      "scanner/**/*.ts",
+      "dashboard/**/*.ts",
+      "scripts/**/*.ts",
+      "!node_modules/**",
+      "!dist/**",
+      "!.grc/**",
+      "!.well-known/**",
+      "!.wrangler/**"
+    ]
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error",
+        "noUnusedPrivateClassMembers": "error",
+        "useExhaustiveDependencies": "off",
+        "noInvalidUseBeforeDeclaration": "error"
+      },
+      "suspicious": {
+        "noDoubleEquals": "error",
+        "noDuplicateCase": "error",
+        "noDuplicateObjectKeys": "error",
+        "noDuplicateParameters": "error",
+        "noConstEnum": "error",
+        "noAssignInExpressions": "error",
+        "noExplicitAny": "off",
+        "noConsole": "off",
+        "useAwait": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off",
+        "useTemplate": "off",
+        "useConst": "error",
+        "useSingleVarDeclarator": "off",
+        "noParameterAssign": "off"
+      },
+      "complexity": {
+        "noForEach": "off",
+        "noUselessConstructor": "off",
+        "useOptionalChain": "off"
+      },
+      "performance": {
+        "noDelete": "off"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": false
+  }
+}

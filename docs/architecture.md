@@ -1,92 +1,81 @@
 # Architecture
 
-## System Design: Hub and Spoke
+## Hub and spoke
 
 ```
-┌─────────────────────────────────────────┐
-│         Central GRC Dashboard            │
-│         (aggregates everything)          │
-└──────────┬──────────┬──────────┬────────┘
-           │          │          │
-      Repo A      Repo B      Repo C
-      (GH Action)  (GH Action)  (GH Action)
-      scans on     scans on     scans on
-      PR/deploy    PR/deploy    PR/deploy
+         ┌──────────────────────────┐
+         │   Cloudflare Worker      │
+         │   (dashboard + KV)       │
+         └──────────┬───────────────┘
+                    │ POST /api/report (OIDC-authed)
+                    │
+      ┌─────────────┼─────────────┐
+      │             │             │
+   Repo A         Repo B        Repo C
+   GitHub Action  GitHub Action GitHub Action
+   writes .grc/   writes .grc/  writes .grc/
+   commits policy commits policy commits policy
 ```
 
-Each repo:
-- Runs the same reusable GitHub Action
-- Generates a local compliance badge and manifest file committed to the repo
-- POSTs the manifest to the central dashboard API
+Every consuming repo runs the same composite action (`action.yml`). Each run:
 
-The central dashboard:
-- Receives and stores manifests from all repos
-- Provides the org-wide view, trends, and reporting
+1. Scans the repo tree (Node source + `package.json` + `requirements.txt` + `pyproject.toml`) and the live URL if configured.
+2. Writes a YAML manifest to `.grc/manifest.yml` and generated policy markdown to `docs/policies/` + `/.well-known/security.txt`.
+3. On PRs, commits generated policies back to the PR branch (attributed to `grc-bot`).
+4. Mints a short-lived GitHub OIDC JWT and POSTs the manifest to the dashboard's `/api/report`.
 
-## Single Source of Truth Principle
+The dashboard (Hono on Cloudflare Workers) verifies the JWT against GitHub's JWKS, stores the manifest in KV keyed by `manifest:<repo>:<branch>`, and renders HTML views with HTMX.
+
+## Single source of truth
+
+The scan is the authority.
 
 ```
-❌ Traditional (drift-prone):
+❌ Drift-prone:
    Lawyer writes policy → hope code matches → audit finds gaps
 
-✅ Our approach (compliance-as-code):
-   Code is scanned → scan produces facts → facts generate policy
-                                         → facts feed dashboard
+✅ Compliance-as-code:
+   Code scanned → scan produces facts → facts generate policy
+                                      → facts feed dashboard
+                                      → facts feed framework scoring
 ```
 
-The scan is the authority. The privacy policy, ToS, and dashboard status are all derivatives of what the scan found. If the scan says "this repo collects email via a form and sends it through Resend," then:
-- The privacy policy gets a section about email collection and Resend as a processor
-- The dashboard shows "data collection: email (processor: Resend)" as a tracked item
+If the scan finds that a repo collects email via a form and sends it through Resend, downstream outputs follow automatically: the privacy policy names Resend as a processor, the dashboard's data-collection row lists "email (processor: Resend)", and the NIST CSF check for data inventory flips to `pass` based on that evidence.
 
-## GitHub Action Flow
+## Tech stack
 
-The reusable GitHub Action runs in its own container and can scan ANY repo regardless of language:
+- **Scanner:** Node 20, TypeScript via `tsx` at runtime. No build step.
+- **Scan rules:** `scanner/rules/*.ts` — one file per concept (forms, endpoints, secrets, dependencies, access controls, AI systems, …). Each returns structured findings.
+- **Policy templates:** Handlebars (`.hbs`) in `scanner/templates/`. Rendered to markdown by `scanner/render.ts`.
+- **Reports:** `scanner/generators/*.ts` — markdown output per framework / concern (NIST CSF, EU AI Act, risk assessment, security headers, access controls).
+- **Dashboard:** Hono on Cloudflare Workers. Inlined HTML + Press Start 2P / JetBrains Mono + HTMX for tab navigation.
+- **Storage:** Cloudflare KV, two key shapes: `manifest:<repo>:<branch>` for current state, `history:<repo>` for trend data.
+- **Auth:** GitHub OIDC on `POST /api/report`. No shared secrets; see `dashboard/auth.ts`.
 
-**Outputs:**
-1. `manifest.yml` — structured compliance data (committed to repo)
-2. POST to dashboard API — feeds the central dashboard
-3. Compliance badge SVG — visual status indicator
-4. Generated policies — only for repos serving public-facing sites
+## Where AI fits in
 
-## Tech Stack
+The AI enhancement layer (Phase 4) is optional — the scanner works fully without it. When enabled and given an API key, an LLM refines PII classification, rewrites risk narratives in plain English, and generates gap analyses with prioritized recommendations.
 
-- **GitHub Action**: Reusable workflow (`.github/workflows/grc-scan.yml`)
-- **Scanner**: Node.js script using AST parsing + regex
-- **Dashboard API**: Express endpoint (or separate service)
-- **Dashboard UI**: HTMX (matches joeeftekhari.com stack)
-- **Storage**: Postgres on Digital Ocean droplet (or JSON files to start)
+The EU AI Act detection + risk classification (Phase 8) is a separate thing: purely deterministic scanning of consuming repos for AI SDK imports, framework imports, and outbound AI API URLs. No LLM involvement in that path.
 
-## Build Tiers
+## What each folder is for
 
-### Tier 1 (Start Here)
-- Scanner detects: data collection, security headers, dependencies, secrets, TLS, security.txt
-- Outputs: manifest.yml, generated policies (privacy policy, ToS, security.txt, vulnerability disclosure)
-- Dashboard: checklist view per repo
+| Folder | Purpose |
+|---|---|
+| `scanner/rules/` | Per-concept scan rules producing structured findings |
+| `scanner/templates/` | Handlebars policy templates |
+| `scanner/generators/` | Markdown report generators |
+| `scanner/frameworks/` | Framework definitions (NIST CSF, EU AI Act) and cross-maps |
+| `scanner/ai/` | Optional LLM enhancement layer |
+| `dashboard/` | Cloudflare Worker + render functions |
+| `dashboard/views/render.ts` | All HTML rendering — server-rendered, HTMX for tab swaps |
+| `scripts/` | Standalone tsx utilities (smoke tests, one-off maintenance) |
+| `docs/` | Reference documentation (this file, checklist, GRC fundamentals, badges) |
 
-### Tier 2 (After Tier 1 Works)
-- Add: framework mapping (NIST CSF controls → scan results)
-- Add: branch comparison (main vs feature branches)
-- Add: trend tracking over time
-- Dashboard: framework compliance percentages
+## Not covered here
 
-### Tier 3 (Portfolio Showstopper)
-- Add: audit evidence export (PDF/ZIP per framework)
-- Add: AI-powered gap analysis ("you're missing X for SOC 2")
-- Add: remediation suggestions with auto-fix PRs
-- Dashboard: auditor-ready report generation
-
-## Where AI Fits In
-
-| Task | Deterministic Scan | AI Layer |
-|---|---|---|
-| "Is there a form?" | Regex for `<form`, POST routes | — |
-| "What data does it collect?" | Parse input names | Classify as PII vs non-PII |
-| "Is this a new third-party service?" | Check imports/API calls | Determine if it's a data processor |
-| "Is the policy still accurate?" | Diff manifest vs last policy | Explain what changed in plain English |
-| "What should we do about this?" | — | Generate remediation steps |
-
-Additional AI opportunities:
-- LLM reviews code diffs for new data collection patterns humans might miss
-- Auto-classifies data types (PII vs non-PII)
-- Generates remediation suggestions when a check fails
-- Summarizes compliance posture changes in plain English for non-technical stakeholders
+- **What the scanner detects** — see the "What It Scans" section in the [README](../README.md).
+- **How to set up a fork** — see [README § Setup](../README.md#setup).
+- **The manifest schema** — `scanner/types.ts` is the authoritative source. The TypeScript types are the schema.
+- **Roadmap** — [implementation-checklist.md](implementation-checklist.md).
+- **How to extend the scanner** — [CONTRIBUTING.md](../CONTRIBUTING.md).

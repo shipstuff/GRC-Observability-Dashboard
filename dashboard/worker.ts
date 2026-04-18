@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { parse } from "yaml";
-import type { Manifest, AISystem } from "../scanner/types.js";
+import type { Manifest, } from "../scanner/types.js";
 import { evaluateFramework } from "../scanner/generators/framework-report.js";
 import { evaluateEUAIAct, calcAIComplianceScore } from "../scanner/frameworks/eu-ai-act.js";
 import { renderDashboard, renderRepoDetail, renderNistView, renderBranchComparison, renderTrendChart, renderAIComplianceView, renderInventoryView } from "./views/render.js";

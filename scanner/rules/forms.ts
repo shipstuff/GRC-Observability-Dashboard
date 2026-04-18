@@ -40,9 +40,7 @@ export async function scanForms(ctx: ScanContext): Promise<DataCollectionPoint[]
     const fieldTypes: Map<string, string> = new Map();
 
     for (const pattern of [INPUT_PATTERN, INPUT_PATTERN_ALT]) {
-      let match;
-      pattern.lastIndex = 0;
-      while ((match = pattern.exec(content)) !== null) {
+      for (const match of content.matchAll(pattern)) {
         const name = pattern === INPUT_PATTERN ? match[1] : match[2];
         const type = pattern === INPUT_PATTERN ? match[2] : match[1];
         if (name && !["submit", "hidden", "csrf", "_token"].includes(name.toLowerCase())) {
@@ -54,9 +52,7 @@ export async function scanForms(ctx: ScanContext): Promise<DataCollectionPoint[]
     }
 
     for (const pattern of [TEXTAREA_PATTERN, SELECT_PATTERN]) {
-      let match;
-      pattern.lastIndex = 0;
-      while ((match = pattern.exec(content)) !== null) {
+      for (const match of content.matchAll(pattern)) {
         if (match[1]) {
           fields.push(classifyField(match[1]));
         }
