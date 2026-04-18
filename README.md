@@ -47,6 +47,10 @@ npx wrangler dev
 npx wrangler deploy
 ```
 
+**Authentication.** The dashboard verifies incoming manifest POSTs against GitHub's OIDC provider — no shared secret to configure. Consumer workflows mint a short-lived JWT that the dashboard validates against GitHub's public JWKS, and the token's `repository` claim must match the manifest's `repo` field. Fork deployers optionally set `GRC_AUDIENCE` in `[vars]` on `wrangler.toml` to scope tokens to their deployment (defaults to `grc-dashboard`).
+
+For local development with `wrangler dev`, set `GRC_AUTH_BYPASS=1` in your local `.dev.vars` to skip verification while you iterate; never set this in production.
+
 ### 2. Add the Action to Your Repos
 
 Create `.github/workflows/grc-scan.yml`:
@@ -62,6 +66,7 @@ on:
 permissions:
   contents: write          # required for auto-committing generated policies to PR branch
   pull-requests: write
+  id-token: write          # required to mint the OIDC JWT the dashboard uses for auth
 
 jobs:
   scan:
@@ -76,7 +81,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 ```
 
-If you prefer the action not commit anything, keep `contents: read`. The scan still runs and the dashboard still updates - generated policies just won't auto-commit.
+If you prefer the action not commit anything, replace `contents: write` with `contents: read`. The scan still runs and the dashboard still updates — generated policies just won't auto-commit.
+
+`id-token: write` is the only required change from the pre-auth workflow shape. The scanner uses GitHub's OIDC provider to mint a short-lived JWT so the dashboard can verify the request came from this specific repository. There are no shared secrets to manage on the consumer side.
 
 ### 3. Add Site Config
 
