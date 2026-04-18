@@ -42,8 +42,9 @@ function timeAgo(dateStr: string): string {
   return `${days}D AGO`;
 }
 
-function layout(title: string, content: string, orgName: string = ""): string {
+function layout(title: string, content: string, orgName: string = "", activeNav: "dashboard" | "inventory" = "dashboard"): string {
   const subtitle = orgName ? `${orgName.toUpperCase()} // ` : "";
+  const navCls = (n: string) => n === activeNav ? "active" : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -103,6 +104,13 @@ function layout(title: string, content: string, orgName: string = ""): string {
       letter-spacing: 2px; animation: flicker 4s infinite alternate;
     }
     .header .subtitle { font-family: var(--font-pixel); font-size: 8px; color: #00ffff; margin-top: 8px; letter-spacing: 4px; }
+    .header .header-nav {
+      display: flex; justify-content: center; gap: 24px; margin-top: 12px;
+      font-family: var(--font-pixel); font-size: 8px; letter-spacing: 2px;
+    }
+    .header .header-nav a { color: #666; text-decoration: none; }
+    .header .header-nav a.active { color: #39ff14; text-shadow: 0 0 6px #39ff14; }
+    .header .header-nav a:hover { color: #ff00ff; text-shadow: 0 0 6px #ff00ff; }
     @keyframes flicker { 0%,95%,100%{opacity:1} 96%{opacity:0.8} 97%{opacity:1} 98%{opacity:0.9} }
     @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
     @keyframes slideIn { from{transform:translateY(-10px);opacity:0} to{transform:translateY(0);opacity:1} }
@@ -247,11 +255,14 @@ function layout(title: string, content: string, orgName: string = ""): string {
     .trend-chart .fill-compliance { fill: #39ff14; }
     .trend-chart .line-nist { stroke: #00ffff; filter: drop-shadow(0 0 2px #00ffff); }
     .trend-chart .fill-nist { fill: #00ffff; }
+    .trend-chart .line-ai { stroke: #ff00ff; filter: drop-shadow(0 0 2px #ff00ff); }
+    .trend-chart .fill-ai { fill: #ff00ff; }
     .trend-chart .line-vulns { stroke: #ff0040; filter: drop-shadow(0 0 2px #ff0040); }
     .trend-chart .fill-vulns { fill: #ff0040; }
     .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
     .legend-dot.line-compliance { background: #39ff14; box-shadow: 0 0 4px #39ff14; }
     .legend-dot.line-nist { background: #00ffff; box-shadow: 0 0 4px #00ffff; }
+    .legend-dot.line-ai { background: #ff00ff; box-shadow: 0 0 4px #ff00ff; }
     .legend-dot.line-vulns { background: #ff0040; box-shadow: 0 0 4px #ff0040; }
     .trend-wrap { position: relative; }
     .trend-tooltip {
@@ -289,7 +300,9 @@ function layout(title: string, content: string, orgName: string = ""): string {
     .trend-tooltip .tt-commit { color: #ffff00; }
     .trend-tooltip .tt-c { color: #39ff14; }
     .trend-tooltip .tt-n { color: #00ffff; }
+    .trend-tooltip .tt-a { color: #ff00ff; }
     .trend-tooltip .tt-v { color: #ff0040; }
+    .trend-tooltip .tt-ai-row { display: contents; }
     .trend-chart .trend-hover-zone { fill: transparent; cursor: crosshair; }
     .trend-chart .trend-hover-zone:hover, .trend-chart .trend-hover-zone.active { fill: rgba(255,255,255,0.04); }
 
@@ -357,6 +370,10 @@ function layout(title: string, content: string, orgName: string = ""): string {
   <div class="header">
     <h1>GRC OBSERVABILITY</h1>
     <div class="subtitle">${subtitle}GOVERNANCE RISK COMPLIANCE DASHBOARD</div>
+    <div class="header-nav">
+      <a href="/" class="${navCls("dashboard")}">DASHBOARD</a>
+      <a href="/inventory" class="${navCls("inventory")}">AI INVENTORY</a>
+    </div>
   </div>
   <div class="container">
     ${content}
@@ -494,13 +511,23 @@ function layout(title: string, content: string, orgName: string = ""): string {
       btn.setAttribute('data-url', url);
       htmx.ajax('GET', url + branchParam, {target: '#panel-' + repoId, swap: 'innerHTML'});
     }
-    function showTrendTip(chartId, date, commit, c, n, v, evt) {
+    function showTrendTip(chartId, date, commit, c, n, v, evt, a) {
       var tip = document.getElementById('tt-' + chartId);
       if (!tip) return;
       tip.querySelector('.tt-date').textContent = date;
       tip.querySelector('.tt-commit').textContent = commit;
       tip.querySelector('.tt-c').textContent = c + '%';
       tip.querySelector('.tt-n').textContent = n + '%';
+      var aiRow = tip.querySelector('.tt-ai-row');
+      var aiVal = tip.querySelector('.tt-a');
+      if (aiRow && aiVal) {
+        if (a === undefined || a === null || a === '') {
+          aiRow.style.display = 'none';
+        } else {
+          aiRow.style.display = 'contents';
+          aiVal.textContent = a + '%';
+        }
+      }
       tip.querySelector('.tt-v').textContent = v;
       // Position tooltip above the hovered column.
       var zone = evt.currentTarget;
@@ -573,11 +600,24 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
   const totalVulns = summaries.reduce((s, r) => s + r.criticalVulns + r.highVulns, 0);
   const secretsCount = summaries.filter(r => r.secretsDetected).length;
 
+  // AI aggregation: average AI compliance score and total detected AI systems
+  // across repos. Older manifests may lack the AI fields, so we treat them as
+  // zero-AI rather than short-circuiting on undefined.
+  const totalAISystems = summaries.reduce((s, r) => s + (r.aiSystemCount ?? 0), 0);
+  const aiRepos = summaries.filter(r => (r.aiSystemCount ?? 0) > 0);
+  const avgAIScore = aiRepos.length > 0
+    ? Math.round(aiRepos.reduce((s, r) => s + (r.aiScore ?? 0), 0) / aiRepos.length)
+    : null;
+  const aiScoreDisplay = avgAIScore === null
+    ? `<span style="color:#555">\u2014</span>`
+    : `<span style="color:${scoreColor(avgAIScore)}">${avgAIScore}%</span>`;
+
   const statsHtml = `
     <div class="stats-row">
       <div class="stat-card"><div class="label">Targets</div><div class="value" style="color:#00ffff">${totalRepos}</div></div>
       <div class="stat-card"><div class="label">Compliance</div><div class="value" style="color:${scoreColor(avgScore)}">${avgScore}%</div></div>
       <div class="stat-card"><div class="label">NIST CSF</div><div class="value" style="color:${scoreColor(avgNist)}">${avgNist}%</div></div>
+      <div class="stat-card"><div class="label">EU AI Act</div><div class="value">${aiScoreDisplay}</div><div class="label" style="margin-top:4px;">${totalAISystems} SYS${aiRepos.length > 0 ? ` // ${aiRepos.length} REPO${aiRepos.length === 1 ? "" : "S"}` : ""}</div></div>
       <div class="stat-card"><div class="label">Threats</div><div class="value" style="color:${totalVulns > 0 ? "#ff0040" : "#39ff14"}">${totalVulns}</div></div>
       <div class="stat-card"><div class="label">Leaks</div><div class="value" style="color:${secretsCount > 0 ? "#ff0040" : "#39ff14"}">${secretsCount}</div></div>
     </div>`;
@@ -663,7 +703,25 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
   return layout("GRC OBSERVABILITY", statsHtml + searchHtml + `<div class="section"><div class="section-title">Scanned Repos</div>${reposHtml}</div>`, orgName);
 }
 
-export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): string {
+type PolicyServedState = "served" | "unreachable" | "not-configured";
+type PolicyServedMap = Partial<Record<
+  "privacyPolicy" | "termsOfService" | "vulnerabilityDisclosure" | "incidentResponsePlan" | "securityTxt",
+  PolicyServedState
+>>;
+
+export interface ServedState {
+  policyServed?: PolicyServedMap;
+  policyServedCheckedAt?: string;
+}
+
+function servedBadge(state: PolicyServedState | undefined): string {
+  if (state === "served") return `<span class="icon pass">[OK]</span> SERVED`;
+  if (state === "unreachable") return `<span class="icon fail">[XX]</span> UNREACHABLE`;
+  if (state === "not-configured") return `<span class="icon na">[--]</span> NOT CONFIGURED`;
+  return `<span style="color:#444">\u2014</span>`;
+}
+
+export function renderRepoDetail(manifest: Manifest, summary: RepoSummary, served: ServedState = {}): string {
   const dc = manifest.dataCollection;
   const tp = manifest.thirdPartyServices;
   const h = manifest.securityHeaders;
@@ -722,11 +780,52 @@ export function renderRepoDetail(manifest: Manifest, summary: RepoSummary): stri
   html += `<tr><td>Signed Commits</td><td>${ac.signedCommits === true ? '<span class="icon pass">[OK]</span>' : ac.signedCommits === false ? '<span class="icon fail">[XX]</span>' : '<span style="color:#555">\u2014</span>'}</td></tr>`;
   html += `</table>`;
 
+  // Governance artifacts table shows TWO columns per policy: IN REPO
+  // (scanner's file-on-disk state) and SERVED (live-URL state from the last
+  // Check Production click). These are distinct compliance signals — a policy
+  // file can exist in the repo but not be served at its configured URL, and
+  // vice versa.
   html += `<h3>GOVERNANCE ARTIFACTS</h3>`;
-  html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup><tr><th>ARTIFACT</th><th>STATUS</th></tr>`;
+  html += `<table><colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>`;
+  html += `<tr><th>ARTIFACT</th><th>IN REPO</th><th>SERVED</th></tr>`;
   const labels: Record<string, string> = { privacyPolicy:"Privacy Policy", termsOfService:"Terms of Service", securityTxt:"security.txt", vulnerabilityDisclosure:"Vuln Disclosure", incidentResponsePlan:"Incident Response Plan" };
-  for (const [key, label] of Object.entries(labels)) { const val = (manifest.artifacts as any)[key] as string; html += `<tr><td>${label}</td><td>${statusIcon(val)} ${val.toUpperCase()}</td></tr>`; }
-  html += `</table></div>`;
+  for (const [key, label] of Object.entries(labels)) {
+    const val = (manifest.artifacts as any)[key] as string;
+    const servedState = (served.policyServed || {})[key as keyof PolicyServedMap];
+    html += `<tr><td>${label}</td><td>${statusIcon(val)} ${val.toUpperCase()}</td><td>${servedBadge(servedState)}</td></tr>`;
+  }
+  html += `</table>`;
+
+  // AI-specific policies (Phase 8 Sub-phase D). Only render rows whose
+  // artifact field is defined and not "not-applicable", so repos without the
+  // triggering AI scope stay clean.
+  const aiLabels: Record<string, string> = {
+    aiUsagePolicy: "AI Usage Policy",
+    modelCards: "Model Cards",
+    fria: "FRIA",
+  };
+  const aiRows: string[] = [];
+  for (const [key, label] of Object.entries(aiLabels)) {
+    const val = (manifest.artifacts as any)[key] as string | undefined;
+    if (val === undefined || val === "not-applicable") continue;
+    aiRows.push(`<tr><td>${label}</td><td>${statusIcon(val)} ${val.toUpperCase()}</td><td><span style="color:#444">\u2014</span></td></tr>`);
+  }
+  if (aiRows.length > 0) {
+    html += `<h3>AI ARTIFACTS</h3>`;
+    html += `<table><colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>`;
+    html += `<tr><th>ARTIFACT</th><th>IN REPO</th><th>SERVED</th></tr>`;
+    html += aiRows.join("");
+    html += `</table>`;
+  }
+
+  // Freshness footer for the SERVED column.
+  if (served.policyServedCheckedAt) {
+    html += `<p class="note" style="margin-top:8px;font-size:11px;">Served status last checked ${timeAgo(served.policyServedCheckedAt)}. Click <strong>CHECK PRODUCTION</strong> above to refresh. IN REPO reflects the scanner's view of the file on disk at the last scan; SERVED reflects an HTTP GET against the URL declared in <code>.grc/config.yml</code> under <code>policy_urls:</code>.</p>`;
+  } else {
+    html += `<p class="note" style="margin-top:8px;font-size:11px;">SERVED status has never been checked for this repo. Click <strong>CHECK PRODUCTION</strong> above to populate it. Only policies with a URL declared under <code>policy_urls:</code> in <code>.grc/config.yml</code> will be checked; unlisted ones stay as NOT CONFIGURED.</p>`;
+  }
+
+  html += `</div>`;
   return html;
 }
 
@@ -821,11 +920,11 @@ export function renderBranchComparison(summaries: RepoSummary[]): string {
 
 interface Series {
   values: number[];
-  metric: "compliance" | "nist" | "vulns";
+  metric: "compliance" | "nist" | "ai" | "vulns";
   axis: "left" | "right";
 }
 
-interface HoverDatum { date: string; commit: string; c: number; n: number; v: number }
+interface HoverDatum { date: string; commit: string; c: number; n: number; v: number; a?: number }
 
 function renderSvgChart(
   series: Series[],
@@ -908,7 +1007,8 @@ function renderSvgChart(
       const x = Math.max(padL, centerX - zoneW / 2);
       const w = Math.min(vbW - padR - x, zoneW);
       const d = opts.hoverData[i];
-      hoverHtml += `<rect class="trend-hover-zone" x="${x.toFixed(1)}" y="${padT}" width="${w.toFixed(1)}" height="${chartH}" data-commit="${esc(d.commit)}" onmouseover="showTrendTip('${opts.chartId}', '${esc(d.date)}', '${esc(d.commit)}', ${d.c}, ${d.n}, ${d.v}, event)" onmouseout="hideTrendTip('${opts.chartId}')"/>`;
+      const aArg = d.a === undefined ? "undefined" : String(d.a);
+      hoverHtml += `<rect class="trend-hover-zone" x="${x.toFixed(1)}" y="${padT}" width="${w.toFixed(1)}" height="${chartH}" data-commit="${esc(d.commit)}" onmouseover="showTrendTip('${opts.chartId}', '${esc(d.date)}', '${esc(d.commit)}', ${d.c}, ${d.n}, ${d.v}, event, ${aArg})" onmouseout="hideTrendTip('${opts.chartId}')"/>`;
     }
   }
 
@@ -927,8 +1027,8 @@ export function renderTrendChart(history: HistoryEntry[], repo: string, branch: 
 
   const recent = history.slice(-20);
   const labels = recent.map(e => new Date(e.scanDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }));
-  const latest = recent[recent.length - 1];
-  const first = recent[0];
+  const latest = recent[recent.length - 1]!;
+  const first = recent[0]!;
 
   const arrowPct = (d: number) => d > 0 ? `<span style="color:#39ff14">+${d}%</span>` : d < 0 ? `<span style="color:#ff0040">${d}%</span>` : `<span style="color:#888">=</span>`;
   const arrowCount = (d: number) => d > 0 ? `<span style="color:#ff0040">+${d}</span>` : d < 0 ? `<span style="color:#39ff14">${d}</span>` : `<span style="color:#888">=</span>`;
@@ -939,11 +1039,22 @@ export function renderTrendChart(history: HistoryEntry[], repo: string, branch: 
   const vulnsFirst = first.criticalVulns + first.highVulns;
   const vulnDelta = vulnsNow - vulnsFirst;
 
+  // EU AI Act series is drawn only if this branch has ever had AI systems.
+  // Otherwise the line would just be 100% throughout (all articles N/A → score
+  // = 100%), which is noise on the chart for repos that don't use AI.
+  const showAISeries = recent.some(e => (e.aiSystemCount ?? 0) > 0);
+  const aiLatest = latest.aiScore ?? null;
+  const aiFirst = first.aiScore ?? null;
+  const aiDelta = (aiLatest !== null && aiFirst !== null) ? aiLatest - aiFirst : 0;
+
   // Stats row
-  html += `<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:8px;margin-bottom:8px;">
+  html += `<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;margin-bottom:8px;">
     <span><span class="legend-dot line-compliance"></span> COMPLIANCE <span style="color:#39ff14">${latest.complianceScore}%</span> ${arrowPct(complianceDelta)}</span>
-    <span><span class="legend-dot line-nist"></span> NIST <span style="color:#00ffff">${latest.nistScore}%</span> ${arrowPct(nistDelta)}</span>
-    <span><span class="legend-dot line-vulns"></span> VULNS <span style="color:#ff0040">${vulnsNow}</span> ${arrowCount(vulnDelta)}</span>
+    <span><span class="legend-dot line-nist"></span> NIST <span style="color:#00ffff">${latest.nistScore}%</span> ${arrowPct(nistDelta)}</span>`;
+  if (showAISeries && aiLatest !== null) {
+    html += `<span><span class="legend-dot line-ai"></span> EU AI <span style="color:#ff00ff">${aiLatest}%</span> ${arrowPct(aiDelta)}</span>`;
+  }
+  html += `<span><span class="legend-dot line-vulns"></span> VULNS <span style="color:#ff0040">${vulnsNow}</span> ${arrowCount(vulnDelta)}</span>
   </div>`;
 
   const vulnValues = recent.map(e => e.criticalVulns + e.highVulns);
@@ -952,6 +1063,7 @@ export function renderTrendChart(history: HistoryEntry[], repo: string, branch: 
   const series: Series[] = [
     { values: recent.map(e => e.complianceScore), metric: "compliance", axis: "left" },
     { values: recent.map(e => e.nistScore), metric: "nist", axis: "left" },
+    ...(showAISeries ? [{ values: recent.map(e => e.aiScore ?? 0), metric: "ai" as const, axis: "left" as const }] : []),
     { values: vulnValues, metric: "vulns", axis: "right" },
   ];
 
@@ -967,6 +1079,7 @@ export function renderTrendChart(history: HistoryEntry[], repo: string, branch: 
     c: e.complianceScore,
     n: e.nistScore,
     v: e.criticalVulns + e.highVulns,
+    a: showAISeries ? (e.aiScore ?? undefined) : undefined,
   }));
 
   // Chart wrapper is relative so the absolute tooltip positions above the hovered column.
@@ -976,6 +1089,7 @@ export function renderTrendChart(history: HistoryEntry[], repo: string, branch: 
       <span class="tt-key">COMMIT</span><span class="tt-val tt-commit"></span>
       <span class="tt-key">COMPLIANCE</span><span class="tt-val tt-c"></span>
       <span class="tt-key">NIST</span><span class="tt-val tt-n"></span>
+      <span class="tt-ai-row"${showAISeries ? "" : ` style="display:none"`}><span class="tt-key">EU AI</span><span class="tt-val tt-a"></span></span>
       <span class="tt-key">VULNS</span><span class="tt-val tt-v"></span>
     </div>
     <div class="trend-chart">${renderSvgChart(series, labels, {
@@ -988,10 +1102,151 @@ export function renderTrendChart(history: HistoryEntry[], repo: string, branch: 
     })}</div>
   </div>`;
 
-  html += `<div style="font-size:7px;color:#666;margin-top:6px;letter-spacing:1px;">LEFT AXIS: % COMPLIANCE // <span style="color:#ff0040">RIGHT AXIS: VULN COUNT</span> // HOVER TO INSPECT</div>`;
+  html += `<div style="font-size:11px;color:#888;margin-top:6px;letter-spacing:1px;">LEFT AXIS: % COMPLIANCE // <span style="color:#ff0040">RIGHT AXIS: VULN COUNT</span> // HOVER TO INSPECT${showAISeries ? "" : " // <span style=\"color:#555\">EU AI line hidden (no AI systems detected on this branch)</span>"}</div>`;
 
   html += `</div>`;
   return html;
+}
+
+/**
+ * Input to renderInventoryView. One row per (repo, AI system) pair so
+ * filtering by provider/tier flattens cleanly.
+ */
+export interface InventoryRow {
+  repo: string;
+  branch: string;
+  scanDate: string;
+  provider: string;
+  sdk: string;
+  category: string;
+  location: string;
+  riskTier: string;
+  riskTierSource: string;
+  euMarket: boolean;
+  riskReasoning?: string;
+}
+
+export function renderInventoryView(rows: InventoryRow[], orgName: string = ""): string {
+  const providers = Array.from(new Set(rows.map(r => r.provider))).sort();
+  const repos = Array.from(new Set(rows.map(r => r.repo))).sort();
+  const tierOrder = ["prohibited", "high", "limited", "minimal", "unknown"];
+  const tiers = Array.from(new Set(rows.map(r => r.riskTier))).sort(
+    (a, b) => tierOrder.indexOf(a) - tierOrder.indexOf(b),
+  );
+
+  const totals = {
+    rows: rows.length,
+    repos: repos.length,
+    prohibited: rows.filter(r => r.riskTier === "prohibited").length,
+    high: rows.filter(r => r.riskTier === "high").length,
+    limited: rows.filter(r => r.riskTier === "limited").length,
+    minimal: rows.filter(r => r.riskTier === "minimal").length,
+    euMarket: rows.filter(r => r.euMarket).length,
+  };
+
+  const statsHtml = `
+    <div class="stats-row">
+      <div class="stat-card"><div class="label">Systems</div><div class="value" style="color:#00ffff">${totals.rows}</div></div>
+      <div class="stat-card"><div class="label">Repos</div><div class="value" style="color:#00ffff">${totals.repos}</div></div>
+      <div class="stat-card"><div class="label">Prohibited</div><div class="value" style="color:${totals.prohibited > 0 ? "#ff0040" : "#555"}">${totals.prohibited}</div></div>
+      <div class="stat-card"><div class="label">High Risk</div><div class="value" style="color:${totals.high > 0 ? "#ff8c00" : "#555"}">${totals.high}</div></div>
+      <div class="stat-card"><div class="label">EU Market</div><div class="value" style="color:${totals.euMarket > 0 ? "#00ffff" : "#555"}">${totals.euMarket}</div></div>
+    </div>`;
+
+  // Filter controls — client-side JS below reads these and hides rows.
+  let filtersHtml = `<div class="detail" style="margin-bottom:12px;">`;
+  filtersHtml += `<h3>FILTERS</h3>`;
+  filtersHtml += `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">`;
+  filtersHtml += `<div><label style="font-family:var(--font-pixel);font-size:8px;color:#888;margin-right:8px;">TIER</label><select id="flt-tier" class="inv-select" onchange="filterInventory()"><option value="">ALL</option>`;
+  for (const t of tiers) filtersHtml += `<option value="${esc(t)}">${esc(t)}</option>`;
+  filtersHtml += `</select></div>`;
+  filtersHtml += `<div><label style="font-family:var(--font-pixel);font-size:8px;color:#888;margin-right:8px;">PROVIDER</label><select id="flt-provider" class="inv-select" onchange="filterInventory()"><option value="">ALL</option>`;
+  for (const p of providers) filtersHtml += `<option value="${esc(p)}">${esc(p)}</option>`;
+  filtersHtml += `</select></div>`;
+  filtersHtml += `<div><label style="font-family:var(--font-pixel);font-size:8px;color:#888;margin-right:8px;">REPO</label><select id="flt-repo" class="inv-select" onchange="filterInventory()"><option value="">ALL</option>`;
+  for (const r of repos) filtersHtml += `<option value="${esc(r)}">${esc(r)}</option>`;
+  filtersHtml += `</select></div>`;
+  filtersHtml += `<div><label style="font-family:var(--font-pixel);font-size:8px;color:#888;margin-right:8px;">EU</label><select id="flt-eu" class="inv-select" onchange="filterInventory()"><option value="">ALL</option><option value="yes">YES</option><option value="no">NO</option></select></div>`;
+  filtersHtml += `<button class="load-more-btn" type="button" onclick="resetInventoryFilters()" style="margin: 0;">RESET</button>`;
+  filtersHtml += `<a class="load-more-btn" href="/api/inventory.csv" style="margin:0;text-decoration:none;">EXPORT CSV</a>`;
+  filtersHtml += `</div></div>`;
+
+  // Inventory table
+  let tableHtml = `<div class="detail"><h3>AI SYSTEMS // ${rows.length} ROWS</h3>`;
+  if (rows.length === 0) {
+    tableHtml += `<p>No AI systems detected across any scanned repo. Run a scan on a repo that imports an AI SDK or uses an AI HTTP API to populate this view.</p></div>`;
+  } else {
+    tableHtml += `<table id="inventory-table"><colgroup><col style="width:20%"><col style="width:14%"><col style="width:14%"><col style="width:10%"><col style="width:10%"><col style="width:7%"><col style="width:25%"></colgroup>`;
+    tableHtml += `<tr><th>REPO</th><th>PROVIDER</th><th>SDK</th><th>TIER</th><th>CATEGORY</th><th>EU</th><th>LOCATION</th></tr>`;
+    for (const r of rows) {
+      const tierColor = r.riskTier === "prohibited" ? "#ff0040"
+        : r.riskTier === "high" ? "#ff8c00"
+        : r.riskTier === "limited" ? "#ffff00"
+        : r.riskTier === "minimal" ? "#39ff14"
+        : "#888";
+      const sourceBadge = r.riskTierSource === "override"
+        ? ' <span style="color:#888;font-size:10px;">\u2605</span>'
+        : "";
+      const tierCell = r.riskReasoning
+        ? `<span class="tip" data-tip="${esc(r.riskReasoning)}" style="color:${tierColor}">${esc(r.riskTier)}</span>${sourceBadge}`
+        : `<span style="color:${tierColor}">${esc(r.riskTier)}</span>${sourceBadge}`;
+      tableHtml += `<tr class="inv-row" data-tier="${esc(r.riskTier)}" data-provider="${esc(r.provider)}" data-repo="${esc(r.repo)}" data-eu="${r.euMarket ? "yes" : "no"}">`;
+      tableHtml += `<td><a href="/#${esc(r.repo)}" style="color:#00ffff">${esc(r.repo)}</a><div style="font-size:10px;color:#666;">${esc(r.branch)}</div></td>`;
+      tableHtml += `<td>${esc(r.provider)}</td>`;
+      tableHtml += `<td>${esc(r.sdk)}</td>`;
+      tableHtml += `<td>${tierCell}</td>`;
+      tableHtml += `<td style="color:#888">${esc(r.category)}</td>`;
+      tableHtml += `<td style="color:${r.euMarket ? "#00ffff" : "#555"}">${r.euMarket ? "YES" : "NO"}</td>`;
+      tableHtml += `<td><code>${esc(r.location)}</code></td>`;
+      tableHtml += `</tr>`;
+    }
+    tableHtml += `</table>`;
+    tableHtml += `<p class="note"><strong>Inventory scope.</strong> This view aggregates AI systems across every repo currently scanned by the dashboard. Rows marked with \u2605 have their risk tier set by an explicit override in <code>.grc/config.yml</code>; other rows are heuristic classifications. <strong>Use.</strong> This list is intended as the source document for EU AI Act Article 60 registration of high-risk systems and for auditor evidence packages. Export as CSV via the button above.</p>`;
+    tableHtml += `</div>`;
+  }
+
+  const inventoryScript = `<script>
+    function filterInventory() {
+      var tier = document.getElementById('flt-tier').value;
+      var prov = document.getElementById('flt-provider').value;
+      var repo = document.getElementById('flt-repo').value;
+      var eu = document.getElementById('flt-eu').value;
+      var rows = document.querySelectorAll('.inv-row');
+      var visible = 0;
+      rows.forEach(function(r) {
+        var show = (!tier || r.dataset.tier === tier)
+          && (!prov || r.dataset.provider === prov)
+          && (!repo || r.dataset.repo === repo)
+          && (!eu || r.dataset.eu === eu);
+        r.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      // The empty-state inventory page renders filter controls but no
+      // #inventory-table, so a reset click must not chain through null.
+      var table = document.querySelector('#inventory-table');
+      if (table) {
+        var detail = table.closest('.detail');
+        var hdr = detail ? detail.querySelector('h3') : null;
+        if (hdr) hdr.textContent = '[ AI SYSTEMS // ' + visible + ' ROWS ]';
+      }
+    }
+    function resetInventoryFilters() {
+      document.getElementById('flt-tier').value = '';
+      document.getElementById('flt-provider').value = '';
+      document.getElementById('flt-repo').value = '';
+      document.getElementById('flt-eu').value = '';
+      filterInventory();
+    }
+  </script>
+  <style>
+    .inv-select {
+      font-family: var(--font-mono); font-size: 12px;
+      background: #050505; border: 1px solid #333; color: #00ffff;
+      padding: 5px 8px; outline: none;
+    }
+  </style>`;
+
+  return layout("AI INVENTORY // GRC OBSERVABILITY", statsHtml + filtersHtml + tableHtml + inventoryScript, orgName, "inventory");
 }
 
 export function renderAIComplianceView(manifest: Manifest): string {

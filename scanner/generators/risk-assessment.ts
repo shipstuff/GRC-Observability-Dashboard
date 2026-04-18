@@ -1,10 +1,11 @@
 import { Manifest } from "../types.js";
 import { SiteConfig } from "../config.js";
 import type { AuthFinding } from "../rules/access-controls.js";
+import { evaluateEUAIAct } from "../frameworks/eu-ai-act.js";
 
 export interface Risk {
   id: string;
-  category: "vulnerability" | "configuration" | "governance" | "data-privacy" | "operational";
+  category: "vulnerability" | "configuration" | "governance" | "data-privacy" | "operational" | "ai-compliance";
   title: string;
   description: string;
   likelihood: "low" | "medium" | "high";
@@ -230,6 +231,56 @@ export function assessRisks(
       status: "open",
       mitigation: "Define retention periods for each data collection point in .grc/config.yml. Implement automated data deletion where appropriate.",
       framework: ["GDPR Art. 5(1)(e)", "NIST CSF PR.IP-6"],
+    });
+  }
+
+  // --- AI compliance risks (EU AI Act) ---
+  // One Risk per failing/partial article. Likelihood and impact are derived
+  // from the risk tier of the in-scope systems — a failed Article 5 check
+  // (prohibited practice) is critical; a partial Article 4 (AI literacy) on
+  // a minimal-risk system is low. Articles that are `not-applicable` in the
+  // manifest produce no risk entries at all.
+  const aiResults = evaluateEUAIAct(manifest);
+  const aiSystems = manifest.aiSystems || [];
+  const hasHighRisk = aiSystems.some(s => s.riskTier === "high" || s.riskTier === "prohibited");
+  const hasProhibited = aiSystems.some(s => s.riskTier === "prohibited");
+
+  for (const result of aiResults) {
+    if (result.status === "pass" || result.status === "not-applicable") continue;
+
+    let likelihood: "low" | "medium" | "high";
+    let impact: "low" | "medium" | "high";
+
+    if (result.articleId === "ART-5" && hasProhibited) {
+      likelihood = "high";
+      impact = "high";
+    } else if (result.status === "fail" && hasHighRisk) {
+      likelihood = "high";
+      impact = "high";
+    } else if (result.status === "fail") {
+      likelihood = "medium";
+      impact = "medium";
+    } else {
+      // partial
+      likelihood = hasHighRisk ? "medium" : "low";
+      impact = hasHighRisk ? "medium" : "low";
+    }
+
+    risks.push({
+      id: id(),
+      category: "ai-compliance",
+      title: `EU AI Act ${result.articleId} — ${result.title}`,
+      description: result.evidence,
+      likelihood,
+      impact,
+      severity: calcSeverity(likelihood, impact),
+      status: "open",
+      mitigation: `Review EU AI Act Article ${result.article}. Document or implement the missing control; when the scanner's artifact check turns "present", this risk will downgrade or close automatically. Override risk tier or declare eu_market under ai_systems in .grc/config.yml if the article does not apply to this system.`,
+      framework: [
+        `EU AI Act Art. ${result.article}`,
+        ...(result.nistAiRmf.length > 0 ? [`NIST AI RMF ${result.nistAiRmf.join(", ")}`] : []),
+        ...(result.iso42001.length > 0 ? [`ISO/IEC 42001 ${result.iso42001.join(", ")}`] : []),
+      ],
     });
   }
 

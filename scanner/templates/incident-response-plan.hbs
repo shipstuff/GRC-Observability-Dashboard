@@ -208,10 +208,75 @@ After every incident, update this IRP with:
 - Improved containment procedures
 - Updated contact information
 - New systems or services added to scope
+{{#if hasAISystems}}
+
+---
+
+## 11. AI-Specific Incident Response (EU AI Act addendum)
+
+AI systems deployed at {{config.siteName}} introduce incident categories that require additional handling beyond the baseline plan above. This section applies whenever an integrated AI system contributes materially to the harm, output, or decision under review.
+
+### 11.1 AI-Specific Detection Signals
+
+- **User-reported harm** — a user contacts [{{config.contactEmail}}](mailto:{{config.contactEmail}}) reporting that an AI-generated output was harmful, misleading, discriminatory, or affected their rights.
+- **Hallucination or confabulation** — the AI system produced confident-but-wrong output that was acted upon by a user or by a downstream system.
+- **Bias or discrimination** — output skews against a protected characteristic (race, gender, age, disability, etc.) detected via user report, audit, or metric.
+- **Provider outage or degradation** — the upstream provider returns errors, high latency, or changed behaviour unexpectedly.
+- **Model drift** — output quality or behaviour changes without a deployment change on our side (usually due to a provider-side model update).
+- **Prompt injection** — user input successfully overrides the intended system instructions, producing off-spec output.
+- **Data leakage** — an AI response inadvertently includes content from training data or prior sessions that should not have been disclosed.
+
+### 11.2 AI Incident Severity
+
+Use the baseline severity matrix in section 3, plus:
+
+| Severity | AI-specific definition |
+|---|---|
+| **P1 — Critical** | AI system produced output that caused direct harm to a natural person, discriminatory denial of service, or breach of fundamental rights |
+| **P2 — High** | AI output caused material harm to a user's interests (financial, reputational, informational) reversible only with effort |
+| **P3 — Medium** | Hallucination or bias surfaced without external harm; fix needed to prevent recurrence |
+| **P4 — Low** | Provider outage, minor output quality regression, no user impact |
+
+### 11.3 Containment Actions Specific to AI
+
+- **Kill switch:** disable the specific AI-powered feature via code push or environment-variable flag. {{config.siteName}} is designed so that disabling any single AI feature does not break core site functionality.
+- **Isolate:** prevent the affected feature from being invoked by other AI systems or downstream tools.
+- **Preserve evidence:** capture the exact prompt, the model version if available, the timestamp, and the user identifier (if any) — but do not log free-form input/output content any longer than is needed to investigate.
+
+### 11.4 Regulatory Notification (EU AI Act Article 73)
+
+{{#if hasEuMarketHighRisk}}
+For the high-risk AI systems placed on the EU market ({{#each euMarketHighRiskSystems}}{{provider}}{{#unless @last}}, {{/unless}}{{/each}}):
+
+- **Serious incidents** — events causing death, serious harm to health, serious and irreversible disruption to critical infrastructure, breach of fundamental rights under Union law, or serious harm to property or environment — must be reported to the relevant market surveillance authority **without undue delay**.
+- **Hard deadline:** in any event **within 15 days** of becoming aware of the incident. Cyberattacks that are serious incidents: 2 days. Incidents that have led to a person's death: 10 days.
+- **What to report:** nature of the incident, AI system involved, provider, estimated affected persons, actions taken, root-cause analysis.
+- **To whom:** the EU Member State market surveillance authority designated for AI; where the deployer operates in multiple Member States, the authority in the Member State of primary establishment.
+
+Coordinate with the upstream provider ({{#each euMarketHighRiskSystems}}{{provider}}{{#unless @last}} / {{/unless}}{{/each}}) in parallel — providers have their own Article 73 reporting obligations and may provide useful forensic information.
+{{else}}
+No high-risk AI systems placed on the EU market are currently detected, so Article 73 notification does not apply. If a high-risk system is added, this section will update automatically on the next scan.
+{{/if}}
+
+### 11.5 Post-AI-Incident Review
+
+In addition to section 10.1, the AI-specific lessons-learned review must cover:
+
+- [ ] Was the system used within its documented intended purpose (per its model card)?
+- [ ] Did the human oversight measures (EU AI Act Art. 14) activate as designed?
+- [ ] Should the risk tier or `eu_market` flag for this system change in `.grc/config.yml`?
+- [ ] Does the AI Usage Policy need an update to reflect what users need to know?
+- [ ] Does the FRIA (if applicable) need revision?
+
+---
+
+## 12. Testing This Plan
+{{else}}
 
 ---
 
 ## 11. Testing This Plan
+{{/if}}
 
 This plan should be tested at minimum annually:
 

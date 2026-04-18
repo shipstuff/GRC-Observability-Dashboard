@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { parse } from "yaml";
-import type { Manifest } from "../scanner/types.js";
+import type { Manifest, AISystem } from "../scanner/types.js";
 import { evaluateFramework } from "../scanner/generators/framework-report.js";
-import { renderDashboard, renderRepoDetail, renderNistView, renderBranchComparison, renderTrendChart, renderAIComplianceView } from "./views/render.js";
+import { evaluateEUAIAct, calcAIComplianceScore } from "../scanner/frameworks/eu-ai-act.js";
+import { renderDashboard, renderRepoDetail, renderNistView, renderBranchComparison, renderTrendChart, renderAIComplianceView, renderInventoryView } from "./views/render.js";
 
 type Bindings = {
   GRC_KV: KVNamespace;
@@ -32,6 +33,9 @@ export interface RepoSummary {
   nistScore: number;
   nistResults: ReturnType<typeof evaluateFramework>;
   artifacts: Manifest["artifacts"];
+  aiScore: number;
+  aiSystemCount: number;
+  aiHighRiskCount: number;
   siteUrl?: string;
 }
 
@@ -54,15 +58,44 @@ export interface HistoryEntry {
   highVulns: number;
   headersPresent: number;
   headersTotal: number;
+  aiScore?: number;
+  aiSystemCount?: number;
+}
+
+/**
+ * States for whether a policy URL is actually being served on the live site.
+ * Distinct from the in-repo artifact state (which lives on `manifest.artifacts`).
+ */
+export type PolicyServedState = "served" | "unreachable" | "not-configured";
+
+export type PolicyServedMap = Partial<Record<
+  "privacyPolicy" | "termsOfService" | "vulnerabilityDisclosure" | "incidentResponsePlan" | "securityTxt",
+  PolicyServedState
+>>;
+
+/**
+ * The KV value we store per (repo, branch). Kept as a named type so the same
+ * shape doesn't get spelled out inline five times.
+ *
+ * `policyServed` + `policyServedCheckedAt` are populated when the user hits
+ * the Check Production button. They are distinct from `manifest.artifacts`
+ * (which the scanner sets and describes in-repo file state).
+ */
+export interface StoredManifest {
+  manifest: Manifest;
+  receivedAt: string;
+  siteUrl?: string;
+  policyServed?: PolicyServedMap;
+  policyServedCheckedAt?: string;
 }
 
 // --- KV helpers ---
 
-async function getManifests(kv: KVNamespace): Promise<{ key: string; manifest: Manifest; receivedAt: string; siteUrl?: string }[]> {
+async function getManifests(kv: KVNamespace): Promise<(StoredManifest & { key: string })[]> {
   const list = await kv.list({ prefix: "manifest:" });
-  const results = [];
+  const results: (StoredManifest & { key: string })[] = [];
   for (const key of list.keys) {
-    const val = await kv.get(key.name, "json") as { manifest: Manifest; receivedAt: string; siteUrl?: string } | null;
+    const val = await kv.get(key.name, "json") as StoredManifest | null;
     if (val) results.push({ key: key.name, ...val });
   }
   return results;
@@ -87,7 +120,7 @@ async function getManifestEntry(kv: KVNamespace, repo: string, branch?: string) 
   const branchesToTry = branch ? [branch] : ["main", "master"];
   for (const candidate of branchesToTry) {
     const key = `manifest:${repo}:${candidate}`;
-    const entry = await kv.get(key, "json") as { manifest: Manifest; receivedAt: string; siteUrl?: string } | null;
+    const entry = await kv.get(key, "json") as StoredManifest | null;
     if (entry) return entry;
   }
   if (!branch) {
@@ -102,7 +135,7 @@ async function getManifestEntry(kv: KVNamespace, repo: string, branch?: string) 
     // tried them above), then fall back to the first key. Fetch exactly one.
     const preferred = scoped.keys.find(k => k.name.endsWith(":main") || k.name.endsWith(":master"))
       ?? scoped.keys[0];
-    return await kv.get(preferred.name, "json") as { manifest: Manifest; receivedAt: string; siteUrl?: string } | null;
+    return await kv.get(preferred.name, "json") as StoredManifest | null;
   }
   return null;
 }
@@ -207,11 +240,20 @@ function summarize(manifest: Manifest, siteUrl?: string): RepoSummary {
   if (headers) { checks += headersTotal; score += headersPresent; }
   if (manifest.https) { checks++; if (manifest.https.enforced) score++; }
   if (manifest.dependencies) { checks++; if (manifest.dependencies.criticalVulnerabilities === 0 && manifest.dependencies.highVulnerabilities === 0) score++; }
-  const artifactValues = Object.values(manifest.artifacts);
+  // Artifact states are "present" | "generated" | "manual" | "missing" |
+  // "not-applicable" (the last one added in Phase 8 for AI artifacts). Only
+  // in-scope artifacts contribute — "not-applicable" is excluded from BOTH
+  // numerator and denominator so repos without AI systems don't get three
+  // free passes for AI-artifact fields and artificially inflate their score.
+  const artifactValues = Object.values(manifest.artifacts).filter(v => v !== undefined && v !== "not-applicable");
   checks += artifactValues.length; score += artifactValues.filter(v => v !== "missing").length;
   if (manifest.accessControls.branchProtection !== null) { checks++; if (manifest.accessControls.branchProtection) score++; }
 
   const nistResults = evaluateFramework(manifest);
+  const aiResults = evaluateEUAIAct(manifest);
+  const aiScore = calcAIComplianceScore(aiResults);
+  const aiSystems = manifest.aiSystems || [];
+  const aiHighRiskCount = aiSystems.filter(s => s.riskTier === "high" || s.riskTier === "prohibited").length;
 
   return {
     repo: manifest.repo, branch: manifest.branch, commit: manifest.commit, scanDate: manifest.scanDate,
@@ -221,16 +263,17 @@ function summarize(manifest: Manifest, siteUrl?: string): RepoSummary {
     criticalVulns: manifest.dependencies?.criticalVulnerabilities ?? 0,
     highVulns: manifest.dependencies?.highVulnerabilities ?? 0,
     complianceScore: checks > 0 ? Math.round((score / checks) * 100) : 0,
-    nistScore: calcNistScore(nistResults), nistResults, artifacts: manifest.artifacts, siteUrl,
+    nistScore: calcNistScore(nistResults), nistResults, artifacts: manifest.artifacts,
+    aiScore, aiSystemCount: aiSystems.length, aiHighRiskCount, siteUrl,
   };
 }
 
-function preferMain(entries: { manifest: Manifest; receivedAt: string; siteUrl?: string }[]) {
+function preferMain(entries: StoredManifest[]) {
   if (entries.length === 0) return null;
   return entries.find(e => e.manifest.branch === "main" || e.manifest.branch === "master") || entries[0];
 }
 
-function findByBranch(entries: { manifest: Manifest; receivedAt: string; siteUrl?: string }[], branch?: string) {
+function findByBranch(entries: StoredManifest[], branch?: string) {
   if (!branch) return preferMain(entries);
   return entries.find(e => e.manifest.branch === branch) || preferMain(entries);
 }
@@ -286,7 +329,7 @@ app.post("/api/report", async (c) => {
     // Merge with existing data — preserve live check results (headers, TLS) if new scan is static-only
     const siteUrl = c.req.query("site_url") || "";
     const kvKey = `manifest:${manifest.repo}:${manifest.branch}`;
-    const existing = await c.env.GRC_KV.get(kvKey, "json") as { manifest: Manifest; receivedAt: string; siteUrl?: string } | null;
+    const existing = await c.env.GRC_KV.get(kvKey, "json") as StoredManifest | null;
 
     // Defensive: legacy manifests may not have some fields. Fill them in.
     if (!manifest.artifacts) {
@@ -322,6 +365,7 @@ app.post("/api/report", async (c) => {
       nistScore: summary.nistScore, criticalVulns: summary.criticalVulns,
       highVulns: summary.highVulns, headersPresent: summary.headersPresent,
       headersTotal: summary.headersTotal,
+      aiScore: summary.aiScore, aiSystemCount: summary.aiSystemCount,
     });
 
     return c.json({ status: "ok", repo: manifest.repo, branch: manifest.branch });
@@ -335,7 +379,7 @@ app.post("/api/check-production/:owner/:name", async (c) => {
   const repoName = `${c.req.param("owner")}/${c.req.param("name")}`;
   const branch = c.req.query("branch") || "main";
   const kvKey = `manifest:${repoName}:${branch}`;
-  const stored = await c.env.GRC_KV.get(kvKey, "json") as { manifest: Manifest; receivedAt: string; siteUrl?: string } | null;
+  const stored = await c.env.GRC_KV.get(kvKey, "json") as StoredManifest | null;
 
   if (!stored) return c.json({ error: "Repo not found" }, 404);
 
@@ -387,7 +431,7 @@ app.post("/api/check-production/:owner/:name", async (c) => {
       }
     };
 
-    const policyServed: Record<string, "served" | "unreachable" | "not-configured"> = {
+    const policyServed: PolicyServedMap = {
       privacyPolicy: "not-configured",
       termsOfService: "not-configured",
       vulnerabilityDisclosure: "not-configured",
@@ -396,7 +440,7 @@ app.post("/api/check-production/:owner/:name", async (c) => {
     };
 
     const checks: Array<Promise<void>> = [];
-    for (const key of Object.keys(policyServed) as Array<keyof typeof policyServed>) {
+    for (const key of Object.keys(policyServed) as Array<keyof PolicyServedMap>) {
       const configuredUrl = policyUrls[key as keyof typeof policyUrls];
       if (!configuredUrl) continue;
       checks.push(
@@ -409,8 +453,10 @@ app.post("/api/check-production/:owner/:name", async (c) => {
 
     // We DON'T update manifest.artifacts here. That field reflects repo state
     // (does the policy file exist at outputDir?), set by the scanner. Live
-    // servability is a separate concept exposed via the policyServed response
-    // field so the UI can display both independently.
+    // servability is a separate concept stored on the StoredManifest envelope
+    // so the UI can render both independently and show a freshness timestamp.
+    stored.policyServed = policyServed;
+    stored.policyServedCheckedAt = new Date().toISOString();
 
     stored.manifest.scanDate = new Date().toISOString();
     await c.env.GRC_KV.put(kvKey, JSON.stringify(stored));
@@ -422,6 +468,7 @@ app.post("/api/check-production/:owner/:name", async (c) => {
       nistScore: summary.nistScore, criticalVulns: summary.criticalVulns,
       highVulns: summary.highVulns, headersPresent: summary.headersPresent,
       headersTotal: summary.headersTotal,
+      aiScore: summary.aiScore, aiSystemCount: summary.aiSystemCount,
     });
 
     return c.json({
@@ -508,7 +555,11 @@ app.get("/repo/:owner/:name", async (c) => {
   const all = await getManifests(c.env.GRC_KV);
   const entry = findByBranch(all.filter(m => m.manifest.repo === repoName), branch);
   if (!entry) return c.html("<p>REPO NOT FOUND</p>", 404);
-  return c.html(renderRepoDetail(entry.manifest, summarize(entry.manifest, entry.siteUrl)));
+  return c.html(renderRepoDetail(
+    entry.manifest,
+    summarize(entry.manifest, entry.siteUrl),
+    { policyServed: entry.policyServed, policyServedCheckedAt: entry.policyServedCheckedAt },
+  ));
 });
 
 app.get("/nist/:owner/:name", async (c) => {
@@ -543,6 +594,82 @@ app.get("/ai/:owner/:name", async (c) => {
   const entry = findByBranch(all.filter(m => m.manifest.repo === repoName), branch);
   if (!entry) return c.html("<p>REPO NOT FOUND</p>", 404);
   return c.html(renderAIComplianceView(entry.manifest));
+});
+
+function buildInventoryRows(all: { manifest: Manifest }[]): Array<{
+  repo: string; branch: string; scanDate: string;
+  provider: string; sdk: string; category: string; location: string;
+  riskTier: string; riskTierSource: string; euMarket: boolean; riskReasoning?: string;
+}> {
+  // Prefer main/master if the repo has one, else the first scanned branch.
+  // Inventory reflects the state of the default branch — feature branches
+  // are intentionally excluded so the list doesn't churn every PR.
+  const byRepo = new Map<string, { manifest: Manifest }>();
+  for (const entry of all) {
+    const repo = entry.manifest.repo;
+    const existing = byRepo.get(repo);
+    const isMain = entry.manifest.branch === "main" || entry.manifest.branch === "master";
+    if (!existing || isMain) byRepo.set(repo, entry);
+  }
+
+  const rows: ReturnType<typeof buildInventoryRows> = [];
+  for (const entry of byRepo.values()) {
+    for (const s of entry.manifest.aiSystems || []) {
+      rows.push({
+        repo: entry.manifest.repo,
+        branch: entry.manifest.branch,
+        scanDate: entry.manifest.scanDate,
+        provider: s.provider,
+        sdk: s.sdk,
+        category: s.category,
+        location: s.location,
+        riskTier: s.riskTier || "unknown",
+        riskTierSource: s.riskTierSource || "heuristic",
+        euMarket: s.euMarket === true,
+        riskReasoning: s.riskReasoning,
+      });
+    }
+  }
+
+  // Sort: prohibited and high-risk first (most actionable), then by provider.
+  const tierRank: Record<string, number> = { prohibited: 0, high: 1, limited: 2, minimal: 3, unknown: 4 };
+  rows.sort((a, b) => {
+    const ta = tierRank[a.riskTier] ?? 5;
+    const tb = tierRank[b.riskTier] ?? 5;
+    if (ta !== tb) return ta - tb;
+    if (a.provider !== b.provider) return a.provider.localeCompare(b.provider);
+    return a.repo.localeCompare(b.repo);
+  });
+  return rows;
+}
+
+app.get("/inventory", async (c) => {
+  const all = await getManifests(c.env.GRC_KV);
+  const rows = buildInventoryRows(all);
+  const orgName = (c.env.ORG_NAME || "").trim();
+  return c.html(renderInventoryView(rows, orgName));
+});
+
+app.get("/api/inventory.csv", async (c) => {
+  const all = await getManifests(c.env.GRC_KV);
+  const rows = buildInventoryRows(all);
+  const esc = (s: string | undefined) => {
+    if (s === undefined) return "";
+    const needsQuote = /[",\n]/.test(s);
+    const escaped = s.replace(/"/g, '""');
+    return needsQuote ? `"${escaped}"` : escaped;
+  };
+  const header = "repo,branch,scan_date,provider,sdk,category,location,risk_tier,risk_tier_source,eu_market,risk_reasoning";
+  const body = rows.map(r => [
+    r.repo, r.branch, r.scanDate, r.provider, r.sdk, r.category, r.location,
+    r.riskTier, r.riskTierSource, r.euMarket ? "true" : "false", r.riskReasoning ?? "",
+  ].map(esc).join(",")).join("\n");
+  return new Response(header + "\n" + body + "\n", {
+    headers: {
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": `attachment; filename="ai-systems-inventory-${new Date().toISOString().slice(0, 10)}.csv"`,
+    },
+  });
 });
 
 export default app;

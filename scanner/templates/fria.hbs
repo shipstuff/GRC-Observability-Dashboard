@@ -1,0 +1,133 @@
+# Fundamental Rights Impact Assessment — {{config.siteName}}
+
+**Assessment holder:** {{config.ownerName}} ({{config.contactEmail}})
+**Site under assessment:** [{{config.siteUrl}}]({{config.siteUrl}})
+**Scope:** high-risk AI systems placed on the EU market and integrated into {{config.siteName}}
+
+---
+
+This Fundamental Rights Impact Assessment (FRIA) is prepared to meet the obligation of EU AI Act **Article 27**, which requires deployers of certain high-risk AI systems placed on the EU market to assess the impact of those systems on the fundamental rights of affected persons before first use.
+
+It is generated automatically from the scanner's detected inventory of AI systems and is intended as a **template** — the deployer must review and complete the assessment for each high-risk system and keep the completed version alongside the other compliance artifacts.
+
+---
+
+## 1. Systems In Scope
+
+The following AI systems were detected as both high-risk (or prohibited) and placed on the EU market. A separate section of this FRIA applies to each.
+
+| Provider | SDK | Category | Risk Tier | Source of Tier |
+|---|---|---|---|---|
+{{#each systems}}
+| {{provider}} | `{{sdk}}` | {{category}} | {{riskTier}} | {{#if isOverride}}declared in config{{else}}heuristic{{/if}} |
+{{/each}}
+
+If any row above is misclassified, override it under `ai_systems:` in `.grc/config.yml` before completing this FRIA.
+
+---
+
+## 2. Deployer Context
+
+- **Deployer:** {{config.ownerName}}
+- **Legal entity:** [[fill in — sole proprietorship, limited company, etc.]]
+- **Contact point for this FRIA:** [{{config.contactEmail}}](mailto:{{config.contactEmail}})
+- **Jurisdictions served:** {{#if hasGdpr}}EU (GDPR applies){{/if}}{{#if hasCcpa}}, California (CCPA applies){{/if}}
+- **Dataset of affected persons:** [[describe the category and approximate number of natural persons whose rights could be affected by the deployed system]]
+
+---
+
+## 3. Assessment — Per System
+
+{{#each systems}}
+### 3.{{@index}}. {{provider}}
+
+#### a. Intended purpose of the deployment
+
+{{purpose}}. Deployed at {{../config.siteUrl}}.
+
+#### b. Period and frequency
+
+- **First use:** [[date first deployed]]
+- **Frequency:** [[continuous / on user action / scheduled batch]]
+- **Duration of use expected:** [[time-bounded pilot / ongoing]]
+
+#### c. Categories of natural persons affected
+
+[[list the categories — e.g. job applicants, credit applicants, patients, students, residents of a particular region]]
+
+Estimated number per month: [[fill in]]
+
+#### d. Specific risks of harm
+
+For this system, assess plausible harms to the fundamental rights enumerated in the Charter of Fundamental Rights of the EU and the EU AI Act recitals. Document at least:
+
+- **Right to human dignity (Art. 1 CFR):** [[impact assessment]]
+- **Right to non-discrimination (Art. 21 CFR):** [[impact assessment — include bias testing results]]
+- **Right to privacy and data protection (Art. 7, 8 CFR):** [[impact assessment — cross-reference privacy policy]]
+- **Right to an effective remedy (Art. 47 CFR):** [[how users can contest]]
+- **Right of the child (Art. 24 CFR):** [[if children might be affected]]
+- **Consumer protection (Art. 38 CFR):** [[if this is a B2C deployment]]
+
+#### e. Oversight measures
+
+- **Human oversight:** [[describe who reviews outputs, at what frequency, and how they can intervene]]
+- **Technical measures:** [[rate limits, output validation, sandboxing — reference the model card for this system]]
+- **Organisational measures:** [[training given to staff interacting with the system]]
+
+#### f. Measures to mitigate identified risks
+
+[[list concrete mitigations mapped to each identified harm above]]
+
+#### g. Arrangements for incidents
+
+Serious incidents affecting fundamental rights are reported under the Incident Response Plan and, per Article 73, escalated to the relevant market surveillance authority without undue delay (at minimum within 15 days of becoming aware).
+
+{{/each}}
+
+---
+
+## 4. Affected Parties — Notification Plan
+
+If the FRIA identifies that natural persons' rights could be materially affected by an AI decision taken with one of these systems, those persons are informed:
+
+- at the point of interaction (see AI Usage Policy);
+- in the privacy notice;
+- and, for any decision contested, in writing within 14 days of the contestation request.
+
+---
+
+## 5. Review Cadence
+
+This FRIA is to be reviewed:
+
+- on each material change to a listed system (provider swap, new data category processed, tier change);
+- on each substantial change to the deployment (new user group, new feature relying on the system);
+- at minimum annually;
+- following any reported serious incident.
+
+Reviewed by: [[reviewer name]]
+Review date: [[date]]
+Next review due: [[date]]
+
+---
+
+## 6. Record of Consultation
+
+Document any consultation with:
+
+- Data Protection Officer (if designated): [[fill in]]
+- Affected persons' representatives: [[fill in]]
+- Independent experts or ethics advisors: [[fill in]]
+
+---
+
+## 7. Declaration
+
+By signing below, the deployer affirms that this FRIA reflects a good-faith assessment of the fundamental-rights impact of the listed systems, that identified risks have been mitigated to the extent reasonably possible, and that the deployer will not place these systems into use before the FRIA is complete.
+
+Signed: [[deployer signature]]
+Date: [[signature date]]
+
+---
+
+*FRIA generated: {{scanDate}} — Branch: `{{branch}}` ({{commit}})*

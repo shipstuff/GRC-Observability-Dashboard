@@ -260,7 +260,7 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] joeeftekhari.com has `docs/policies/*.md` and `.well-known/security.txt` committed (via scanner on PR #38)
 - [ ] joeeftekhari.com does NOT yet serve policies at public URLs (Express server needs routes to serve markdown at pretty URLs). User closed attempt to add routes (PR #39) — will handle routing + `policy_urls` config themselves when ready.
 
-## Phase 8: AI Compliance Layer — NEXT UP
+## Phase 8: AI Compliance Layer — DONE
 
 **Why this direction:** The EU AI Act becomes enforceable August 2026 with fines up to €35M or 7% of global turnover. The scanner already detects AI SDK usage via dependency scanning but does nothing AI-compliance-specific with those findings. This phase turns "security compliance scanner" into "security + AI compliance scanner."
 
@@ -316,15 +316,18 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - **GRC concept:** Framework pluralism — same findings, multiple framework views
 - **Known limitation:** Many articles resolve to `partial` with instructional evidence because they are program-level obligations the scanner cannot auto-verify (AI literacy training, runtime logging, registration status). The tool surfaces the obligation; closing it is off-scanner.
 
-### Sub-phase D: AI Policy Generation
-- [ ] `ai-usage-policy.hbs` — required by Article 50 for user-facing AI
-- [ ] `model-card.hbs` — one per detected AI system, required by Article 11 for high-risk
-- [ ] `fria.hbs` — Fundamental Rights Impact Assessment, only generated if risk_tier: high AND eu_market: true (Article 27)
-- [ ] IRP addendum — extend existing IRP template with AI-specific scenarios (model failure, hallucination, regulatory notification per Article 73)
-- [ ] Policies ride the same deployment mechanism as Phase 7 (committed to PR branch at output_dir)
+### Sub-phase D: AI Policy Generation — DONE
+- [x] `ai-usage-policy.hbs` generated whenever any AI system is detected (Article 50 transparency). Lists all systems, data flows, user rights, in-product AI labels, opt-out path.
+- [x] `model-card.hbs` rendered once per high-risk / prohibited AI system; output lives at `<output_dir>/model-cards/<provider-sdk>.md`. Covers Article 11 (technical documentation): intended purpose, inputs/outputs, accuracy + robustness claims, human oversight, risk management, data governance, logging.
+- [x] `fria.hbs` generated only when at least one AI system is both high-risk (or prohibited) AND `eu_market: true` (Article 27). Template carries placeholder sections for the human to complete and sign before first use.
+- [x] IRP addendum: `incident-response-plan.hbs` extended with a conditional Section 11 "AI-Specific Incident Response" covering detection signals (hallucination, bias, prompt injection, provider outage), AI-specific severity matrix, containment steps (kill switch), and Article 73 notification timeline (15-day baseline / 2-day for cyberattacks / 10-day for fatalities).
+- [x] Policies ride the Phase 7 deployment flow — written to `config.outputDir` so the action stages + commits them to the PR branch.
+- [x] `scanArtifacts` extended with `aiUsagePolicy` / `modelCards` / `fria` fields; each uses `not-applicable` state when the underlying AI scope doesn't warrant the artifact (so dashboard doesn't flag a missing FRIA on a repo with no EU-market high-risk AI).
+- [x] Article checks (Art. 11 / 27 / 50) credit the generated artifacts: turn `fail` → `partial` on presence, since the templates contain placeholder sections the deployer must still complete.
+- [x] Scan idempotency preserved — a second scan against unchanged inputs produces byte-identical artifact output.
 - **GRC concept:** Required AI documentation under EU AI Act
 
-### Sub-phase E: Dashboard Views — IN PROGRESS
+### Sub-phase E: Dashboard Views — DONE
 - [x] New "AI" tab per repo with:
   - [x] Table of detected AI systems: provider, SDK, category (color-coded), location
   - [x] Risk Tier column (populated by Sub-phase B with color-coded tiers, tentative/override labels, and hover reasoning)
@@ -335,12 +338,11 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] EU AI Act obligations per repo — per-article table on AI tab with phase, status, cross-map references
 - [x] AI compliance score HP-bar — overall EU score + per-phase HP-bars (Govern/Map/Measure/Manage) on AI tab
 - [x] Gaps with evidence — dedicated GAPS table under the AI tab for fail/partial articles
-- [ ] New top-level "AI SYSTEMS INVENTORY" view — aggregated across all repos
-  - Filterable by risk tier, provider, repo
-  - Maps to Article 60 (EU database registration for high-risk AI)
-  - Export format for auditor inventory requirements
-- [ ] Add "AI SCORE" card to the top stats row on main dashboard
-- [ ] New risk category `ai-compliance` in risk assessment with auto-generated risks
+- [x] New top-level "AI SYSTEMS INVENTORY" view at `/inventory` — aggregated across all repos (main/master branch per repo). Client-side filters for tier, provider, repo, and EU-market status. CSV export at `/api/inventory.csv`. Header nav bar links to it from every page.
+- [x] "EU AI Act" score card added to the top stats row — shows average AI compliance score across repos that have detected AI systems, with a secondary line counting total detected systems and affected repos.
+- [x] `ai-compliance` risk category added to `Risk`. `assessRisks` now emits one `Risk` per failing/partial EU AI Act article, with likelihood/impact derived from the risk tier of the in-scope systems (prohibited → critical; high-risk fail → high; partial on minimal → low). Auto-downgrades when generated artifacts are present.
+- [x] Trend chart gains a fourth series: EU AI compliance %, drawn in magenta on the left axis. The series only renders for branches that have had AI systems at some point — repos without AI don't get a noise line at 100%.
+- [x] `HistoryEntry` extended with optional `aiScore` and `aiSystemCount`; populated on POST /api/report and on the live Check Production refresh. Older history entries missing the fields are treated as zero-AI.
 
 ### Phased Rollout
 Recommended build order:

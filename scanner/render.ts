@@ -2,7 +2,7 @@ import { readFileContent } from "./utils.js";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import Handlebars from "handlebars";
-import { Manifest, DataCollectionPoint } from "./types.js";
+import { Manifest, DataCollectionPoint, AISystem } from "./types.js";
 import { SiteConfig } from "./config.js";
 
 // Register helpers
@@ -236,6 +236,121 @@ export async function renderVulnerabilityDisclosure(ctx: RenderContext): Promise
   return template(data);
 }
 
+/**
+ * Best-effort description of why a given AI system exists in the codebase.
+ * Real text should come from an `ai_systems` override with a `purpose` field;
+ * when the user hasn't declared one, we fall back to a category-based default
+ * so the generated policy never ships with an empty column.
+ */
+function aiSystemPurpose(s: AISystem): string {
+  switch (s.category) {
+    case "inference": return "Generative AI / LLM inference";
+    case "training": return "Model training or fine-tuning";
+    case "vector-db": return "Retrieval augmentation (vector storage)";
+    case "framework": return "AI application framework";
+    case "self-hosted": return "Self-hosted inference runtime";
+    default: return "AI integration";
+  }
+}
+
+/**
+ * Slug-ify an AI system into a stable filename component. `provider` is
+ * human-readable ("Google Gemini"); the slug collapses whitespace and
+ * strips punctuation so we can write `model-cards/<slug>.md`.
+ */
+export function aiSystemSlug(s: AISystem): string {
+  const base = s.provider.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const sdk = s.sdk.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return sdk && sdk !== base ? `${base}--${sdk}` : (base || "unknown");
+}
+
+export async function renderModelCard(ctx: RenderContext, system: AISystem): Promise<string> {
+  const templatePath = join(getTemplateDir(), "model-card.hbs");
+  const templateSource = await readFileContent(templatePath);
+  const template = Handlebars.compile(templateSource);
+
+  const data = {
+    config: ctx.config,
+    scanDate: formatScanDate(ctx.manifest.scanDate),
+    branch: ctx.manifest.branch,
+    commit: ctx.manifest.commit,
+    hasInputs: ctx.manifest.dataCollection.length > 0,
+    system: {
+      provider: system.provider,
+      sdk: system.sdk,
+      location: system.location,
+      category: system.category,
+      riskTier: system.riskTier ?? "unknown",
+      isOverride: system.riskTierSource === "override",
+      isProhibitedRisk: system.riskTier === "prohibited",
+      euMarket: system.euMarket === true,
+      purpose: aiSystemPurpose(system),
+      usageLocations: system.usageLocations && system.usageLocations.length > 0
+        ? system.usageLocations
+        : null,
+    },
+  };
+
+  return template(data);
+}
+
+export async function renderFRIA(ctx: RenderContext): Promise<string> {
+  const templatePath = join(getTemplateDir(), "fria.hbs");
+  const templateSource = await readFileContent(templatePath);
+  const template = Handlebars.compile(templateSource);
+
+  const systems = ctx.manifest.aiSystems
+    .filter(s => (s.riskTier === "high" || s.riskTier === "prohibited") && s.euMarket === true)
+    .map(s => ({
+      provider: s.provider,
+      sdk: s.sdk,
+      category: s.category,
+      riskTier: s.riskTier,
+      isOverride: s.riskTierSource === "override",
+      purpose: aiSystemPurpose(s),
+    }));
+
+  const data = {
+    config: ctx.config,
+    scanDate: formatScanDate(ctx.manifest.scanDate),
+    branch: ctx.manifest.branch,
+    commit: ctx.manifest.commit,
+    systems,
+    hasGdpr: ctx.config.jurisdiction.includes("gdpr"),
+    hasCcpa: ctx.config.jurisdiction.includes("ccpa"),
+  };
+
+  return template(data);
+}
+
+export async function renderAIUsagePolicy(ctx: RenderContext): Promise<string> {
+  const templatePath = join(getTemplateDir(), "ai-usage-policy.hbs");
+  const templateSource = await readFileContent(templatePath);
+  const template = Handlebars.compile(templateSource);
+
+  const systems = ctx.manifest.aiSystems.map(s => ({
+    provider: s.provider,
+    sdk: s.sdk,
+    category: s.category,
+    riskTier: s.riskTier ?? "unknown",
+    isOverride: s.riskTierSource === "override",
+    euMarket: s.euMarket === true,
+    purpose: aiSystemPurpose(s),
+  }));
+
+  const data = {
+    config: ctx.config,
+    scanDate: formatScanDate(ctx.manifest.scanDate),
+    branch: ctx.manifest.branch,
+    commit: ctx.manifest.commit,
+    systems,
+    hasInputs: ctx.manifest.dataCollection.length > 0,
+    hasHighRisk: ctx.manifest.aiSystems.some(s => s.riskTier === "high" || s.riskTier === "prohibited"),
+  };
+
+  return template(data);
+}
+
 export async function renderIncidentResponsePlan(ctx: RenderContext): Promise<string> {
   const templatePath = join(getTemplateDir(), "incident-response-plan.hbs");
   const templateSource = await readFileContent(templatePath);
@@ -258,6 +373,11 @@ export async function renderIncidentResponsePlan(ctx: RenderContext): Promise<st
     scope.push(`${s.name} integration (${s.purpose})`);
   }
 
+  const aiSystems = ctx.manifest.aiSystems;
+  const euMarketHighRiskSystems = aiSystems.filter(s =>
+    (s.riskTier === "high" || s.riskTier === "prohibited") && s.euMarket === true
+  );
+
   const data = {
     config: ctx.config,
     scanDate: formatScanDate(ctx.manifest.scanDate),
@@ -268,6 +388,10 @@ export async function renderIncidentResponsePlan(ctx: RenderContext): Promise<st
     securityHeaders: ctx.manifest.securityHeaders !== null,
     tls: ctx.manifest.https !== null,
     thirdPartyServices: ctx.manifest.thirdPartyServices,
+    // AI addendum data — Sub-phase D
+    hasAISystems: aiSystems.length > 0,
+    hasEuMarketHighRisk: euMarketHighRiskSystems.length > 0,
+    euMarketHighRiskSystems: euMarketHighRiskSystems.map(s => ({ provider: s.provider, sdk: s.sdk })),
   };
 
   return template(data);
