@@ -10,6 +10,10 @@ inputs:
     description: "Dashboard URL to POST manifest to (optional)"
     required: false
     default: ""
+  audience:
+    description: "OIDC audience to request when minting the JWT. Must match the dashboard's GRC_AUDIENCE setting. Defaults to 'grc-dashboard' which matches the upstream dashboard — forks that set a custom GRC_AUDIENCE need to override this."
+    required: false
+    default: "grc-dashboard"
 
 runs:
   using: "composite"
@@ -82,13 +86,41 @@ runs:
           exit 0
         fi
 
-    - name: POST manifest to dashboard
+    # Mint a short-lived GitHub OIDC JWT identifying this workflow. The
+    # dashboard verifies the signature against GitHub's JWKS and checks that
+    # the `repository` claim matches the manifest's repo field. No secret to
+    # manage on the consumer side — the workflow just needs `id-token: write`
+    # in its `permissions:` block (see README).
+    - name: Mint OIDC token for dashboard
       if: inputs.dashboard_url != ''
+      id: oidc
+      uses: actions/github-script@v7
+      env:
+        OIDC_AUDIENCE: ${{ inputs.audience }}
+      with:
+        script: |
+          try {
+            const token = await core.getIDToken(process.env.OIDC_AUDIENCE);
+            core.setOutput('token', token);
+          } catch (err) {
+            core.warning(
+              "Could not mint OIDC token — the dashboard POST will be skipped. " +
+              "Add `id-token: write` to your workflow's permissions block. " +
+              "Error: " + err.message
+            );
+            core.setOutput('token', '');
+          }
+
+    - name: POST manifest to dashboard
+      if: inputs.dashboard_url != '' && steps.oidc.outputs.token != ''
       shell: bash
+      env:
+        OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
       run: |
         if [ -f "${{ github.workspace }}/.grc/manifest.yml" ]; then
           curl -sf -X POST \
             -H "Content-Type: application/x-yaml" \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
             --data-binary @"${{ github.workspace }}/.grc/manifest.yml" \
             "${{ inputs.dashboard_url }}/api/report?site_url=${{ inputs.site_url }}" \
             && echo "Manifest POSTed to dashboard" \

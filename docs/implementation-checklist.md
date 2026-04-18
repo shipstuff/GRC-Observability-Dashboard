@@ -195,7 +195,7 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 - [x] Cleaned up outdated docs
 - [x] Deploy workflow injects KV ID and ORG_NAME from secrets/vars at deploy time (not in committed config)
 - [ ] **Validate the fork path end-to-end** — follow the README from a fresh fork and document broken steps
-- [ ] Add authentication to dashboard API (API key validation on POST)
+- [x] Add authentication to dashboard API — POST /api/report verifies a GitHub OIDC JWT against GitHub's JWKS and checks that the token's `repository` claim matches the manifest's `repo` field. No shared secret required — consumers add `id-token: write` to workflow permissions and the composite action handles token minting. Dashboard optionally overrides audience via `GRC_AUDIENCE` env var. `GRC_AUTH_BYPASS=1` available for local `wrangler dev` only. `/api/check-production` intentionally left unauthenticated — it's UI-triggered and can only act on already-authenticated stored state.
 
 ### Documentation
 - [ ] Contributing guide

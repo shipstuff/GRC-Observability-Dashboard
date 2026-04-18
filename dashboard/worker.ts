@@ -4,10 +4,22 @@ import type { Manifest, AISystem } from "../scanner/types.js";
 import { evaluateFramework } from "../scanner/generators/framework-report.js";
 import { evaluateEUAIAct, calcAIComplianceScore } from "../scanner/frameworks/eu-ai-act.js";
 import { renderDashboard, renderRepoDetail, renderNistView, renderBranchComparison, renderTrendChart, renderAIComplianceView, renderInventoryView } from "./views/render.js";
+import { verifyGitHubOidc, assertRepositoryMatches, AuthError, DEFAULT_AUDIENCE } from "./auth.js";
 
 type Bindings = {
   GRC_KV: KVNamespace;
   ORG_NAME?: string;
+  /**
+   * Override the expected OIDC audience for forked deployments. Defaults to
+   * "grc-dashboard". Forks should set this to something deployment-specific
+   * so a token minted for one dashboard can't be replayed against another.
+   */
+  GRC_AUDIENCE?: string;
+  /**
+   * When set to "1", skips OIDC verification on POST endpoints. Intended for
+   * local `wrangler dev` iteration only — never set in production.
+   */
+  GRC_AUTH_BYPASS?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -325,6 +337,20 @@ app.post("/api/report", async (c) => {
       manifest = await c.req.json() as Manifest;
     }
     if (!manifest.repo || !manifest.scanDate) return c.json({ error: "Invalid manifest" }, 400);
+
+    // OIDC verification — required unless GRC_AUTH_BYPASS is explicitly set
+    // for local development. The JWT must have been minted by GitHub for the
+    // same repository that's claiming to submit the manifest.
+    if (c.env.GRC_AUTH_BYPASS !== "1") {
+      try {
+        const audience = c.env.GRC_AUDIENCE || DEFAULT_AUDIENCE;
+        const claims = await verifyGitHubOidc(c.req.header("authorization"), audience);
+        assertRepositoryMatches(claims, manifest.repo);
+      } catch (e) {
+        if (e instanceof AuthError) return c.json({ error: e.message }, e.status as any);
+        throw e;
+      }
+    }
 
     // Merge with existing data — preserve live check results (headers, TLS) if new scan is static-only
     const siteUrl = c.req.query("site_url") || "";
