@@ -85,6 +85,18 @@ If you prefer the action not commit anything, replace `contents: write` with `co
 
 `id-token: write` is the only required change from the pre-auth workflow shape. The scanner uses GitHub's OIDC provider to mint a short-lived JWT so the dashboard can verify the request came from this specific repository. There are no shared secrets to manage on the consumer side.
 
+If you are pointing the action at a fork of this dashboard that sets a custom `GRC_AUDIENCE` in its `wrangler.toml`, also pass the matching `audience` input so the JWT is minted against that audience:
+
+```yaml
+- uses: YOUR_ORG/GRC-Observability-Dashboard@main
+  with:
+    dashboard_url: https://your-fork-dashboard.workers.dev
+    audience: your-fork-audience      # must match GRC_AUDIENCE on the dashboard
+    site_url: https://yoursite.com
+```
+
+When pointing at the upstream dashboard, leave `audience` unset — it defaults to `grc-dashboard`.
+
 ### 3. Add Site Config
 
 Create `.grc/config.yml` in each repo:

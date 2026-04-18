@@ -10,6 +10,10 @@ inputs:
     description: "Dashboard URL to POST manifest to (optional)"
     required: false
     default: ""
+  audience:
+    description: "OIDC audience to request when minting the JWT. Must match the dashboard's GRC_AUDIENCE setting. Defaults to 'grc-dashboard' which matches the upstream dashboard — forks that set a custom GRC_AUDIENCE need to override this."
+    required: false
+    default: "grc-dashboard"
 
 runs:
   using: "composite"
@@ -91,10 +95,12 @@ runs:
       if: inputs.dashboard_url != ''
       id: oidc
       uses: actions/github-script@v7
+      env:
+        OIDC_AUDIENCE: ${{ inputs.audience }}
       with:
         script: |
           try {
-            const token = await core.getIDToken('grc-dashboard');
+            const token = await core.getIDToken(process.env.OIDC_AUDIENCE);
             core.setOutput('token', token);
           } catch (err) {
             core.warning(
