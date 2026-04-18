@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# CI is the only reason a bot needs to read this repo — no write access.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Smoke tests (scanner + dashboard)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Run the scanner against this repo itself. Catches scanner-side
+      # regressions end-to-end: scan rules, policy rendering, framework
+      # evaluation, and report generation all exercised on a real tree.
+      - name: Scanner smoke
+        run: npm run scan -- .
+
+      # Dashboard render paths get their own smoke test with two fixtures:
+      # a current-shape manifest and a pre-Phase-8 manifest missing the
+      # aiSystems field. The second fixture guards against the 2026-04-18
+      # outage where an older stored manifest took /api/repos and the
+      # homepage down with an uncaught TypeError.
+      - name: Dashboard render smoke
+        run: npx tsx scripts/smoke-dashboard.ts

@@ -479,8 +479,9 @@ These cut across all phases and should be addressed opportunistically.
 ### Unfixed Technical Debt
 - [ ] joeeftekhari.com has 1 critical + 3 high CVEs we haven't addressed. We don't use our own tool's output.
 - [ ] joeeftekhari.com doesn't yet serve policies at public URLs — files exist in `docs/policies/` but no Express routes to serve them. Once routes exist, user will configure `policy_urls` and Check Production will verify them.
-- [ ] No tests exist anywhere in the project
-- [ ] No CI beyond deploy (no lint, no type-check)
+- [ ] No unit tests — smoke tests exist (scripts/smoke-dashboard.ts covers render pipeline) but no assertions beyond "did not throw / no bare 'undefined' in output". A real unit test suite (Vitest or similar) is still open.
+- [x] CI on every PR — `.github/workflows/ci.yml` runs the scanner against this repo and smoke-tests every dashboard render function with both new-shape and old-shape manifest fixtures. Catches regressions like the 2026-04-18 outage.
+- [ ] Lint / type-check still missing — `tsc --noEmit` fights with `verbatimModuleSyntax` + the no-@types/node config the runtime relies on (`tsx` handles this at runtime but `tsc` doesn't). Adding a lint pass is tracked separately.
 - [ ] Documentation in `docs/` has overlapping content across files
 - [ ] Deploy workflow uses `sed` for placeholder injection in wrangler.toml — works but is fragile
 - [ ] Monorepo support is poor (scans root only, no per-package awareness)
