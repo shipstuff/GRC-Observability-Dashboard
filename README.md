@@ -25,31 +25,51 @@ Reports (`.grc/`) are gitignored and regenerated each scan. Policies (`docs/poli
 
 ### 1. Deploy the Dashboard
 
+There are two paths. Most forkers want **auto-deploy via GitHub Actions** — it's the supported production flow. **Local-only** is for development and iteration.
+
+#### Auto-deploy (production)
+
+1. **Fork this repo** (or clone into a repo you control).
+2. **Create a KV namespace** once, locally, to get an ID:
+   ```bash
+   npm install
+   npx wrangler login
+   npx wrangler kv namespace create GRC_KV
+   # Copy the id from the output (a 32-char hex string)
+   ```
+3. **Create a Cloudflare API token** at [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) with the "Edit Cloudflare Workers" template.
+4. **Add the secrets and vars to your forked repo** (Settings → Secrets and variables → Actions):
+   - **Secrets:**
+     - `CLOUDFLARE_API_TOKEN` — the token from step 3
+     - `CLOUDFLARE_KV_ID` — the KV id from step 2
+   - **Variables (optional):**
+     - `ORG_NAME` — displayed in the dashboard header
+     - `GRC_AUDIENCE` — OIDC audience the dashboard expects on incoming JWTs (defaults to `grc-dashboard`). Set it if you want consumer workflows pointed at your fork to pass a matching `audience:` input so tokens minted for your dashboard can't be replayed against another.
+5. **Push to `main`**. `.github/workflows/deploy.yml` runs automatically: it validates both secrets are present, injects the KV id into `wrangler.toml`, passes `ORG_NAME` via `--var` at deploy time, and runs `npx wrangler deploy`.
+
+After the first successful deploy, the dashboard is live at `https://grc-dashboard.<your-cf-subdomain>.workers.dev`. Point your consuming repos at it via the `dashboard_url` input on the action (step 2 below).
+
+#### Local-only (development)
+
+Miniflare provides an in-memory KV namespace, so you don't need a Cloudflare account or real secrets:
+
 ```bash
-git clone https://github.com/YOUR_ORG/GRC-Observability-Dashboard.git
-cd GRC-Observability-Dashboard
 npm install
-
-# Login to Cloudflare
-npx wrangler login
-
-# Create KV storage
-npx wrangler kv namespace create GRC_KV
-# Copy the ID from the output
-
-# Edit wrangler.toml - paste the KV namespace ID
-# Optionally set ORG_NAME in [vars]
-
-# Run locally
-npx wrangler dev
-
-# Or deploy to Cloudflare
-npx wrangler deploy
+npx wrangler dev --local
+# open http://localhost:8787
 ```
 
-**Authentication.** The dashboard verifies incoming manifest POSTs against GitHub's OIDC provider — no shared secret to configure. Consumer workflows mint a short-lived JWT that the dashboard validates against GitHub's public JWKS, and the token's `repository` claim must match the manifest's `repo` field. Fork deployers optionally set `GRC_AUDIENCE` in `[vars]` on `wrangler.toml` to scope tokens to their deployment (defaults to `grc-dashboard`).
+The committed `wrangler.toml` carries the literal `YOUR_KV_NAMESPACE_ID` placeholder — miniflare ignores it. Don't commit a real id into the file; the auto-deploy workflow injects it at build time.
 
-For local development with `wrangler dev`, set `GRC_AUTH_BYPASS=1` in your local `.dev.vars` to skip verification while you iterate; never set this in production.
+**Skipping OIDC locally.** The dashboard verifies every `POST /api/report` against GitHub's OIDC provider. For local iteration, create a `.dev.vars` file (gitignored) at the repo root:
+
+```
+GRC_AUTH_BYPASS=1
+```
+
+Never set this in production — the bypass is a development-only ergonomics flag.
+
+**Authentication in production.** The dashboard verifies incoming manifest POSTs against GitHub's OIDC provider — no shared secret to configure. Consumer workflows mint a short-lived JWT that the dashboard validates against GitHub's public JWKS, and the token's `repository` claim must match the manifest's `repo` field. Forks that want to scope tokens to their deployment can set `GRC_AUDIENCE` as a repo variable; it's passed to `wrangler deploy --var` alongside `ORG_NAME`. Defaults to `grc-dashboard`.
 
 ### 2. Add the Action to Your Repos
 
@@ -288,14 +308,16 @@ Your repo/
 | `site_url` | Live URL for the Check Production button | No |
 | `dashboard_url` | Dashboard URL to POST manifests to | No |
 
+## Contributing
+
+Dev loop, adding scan rules, adding policy templates, adding frameworks — all in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Future
 
-- **AI Compliance Layer** (next up): EU AI Act detection and risk tiering, AI system inventory, auto-generated model cards and FRIAs, dashboard AI compliance tab
 - GitHub App (zero-config install, no workflow file needed per repo)
 - SBOM generation (CycloneDX)
 - SAST via Semgrep integration
 - Auditor evidence export (PDF/ZIP per framework)
-- Dashboard authentication
 
 ## Roadmap
 
