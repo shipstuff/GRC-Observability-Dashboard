@@ -141,6 +141,28 @@ describe("SARIF export", () => {
     expect(parsed.runs[0].tool.driver.rules).toEqual([]);
     expect(parsed.runs[0].results).toEqual([]);
   });
+
+  it("extracts the file path from the scanner's prose secret finding (regression: PR #32 Codex P1)", () => {
+    const manifest = baseManifest({
+      secretsScan: {
+        detected: true,
+        findings: [
+          "OpenAI API key found in src/config.ts",
+          "AWS access key found in lib/creds.ts:42",
+        ],
+      },
+    });
+    const parsed = JSON.parse(generateSarifExport(manifest));
+    const results = parsed.runs[0].results;
+    expect(results.length).toBe(2);
+    // The URI must be just the path, not the prose label.
+    expect(results[0].locations[0].physicalLocation.artifactLocation.uri).toBe("src/config.ts");
+    expect(results[0].message.text).toContain("OpenAI API key");
+    expect(results[0].message.text).not.toContain("found in");
+
+    expect(results[1].locations[0].physicalLocation.artifactLocation.uri).toBe("lib/creds.ts");
+    expect(results[1].locations[0].physicalLocation.region.startLine).toBe(42);
+  });
 });
 
 describe("OSCAL export", () => {

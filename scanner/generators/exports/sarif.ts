@@ -117,22 +117,42 @@ function parseLocation(raw: string): {
   return { uri: trimmed };
 }
 
+/**
+ * The scanner's secretsScan.findings field stores human-readable strings
+ * like "OpenAI API key found in src/foo.ts" or
+ * "AWS access key found in config/keys.ts:42". We need to reach into that
+ * string to pull out the filename (and optional line number) for SARIF's
+ * physicalLocation, and keep the label ("OpenAI API key") for the message.
+ */
+function parseSecretFinding(raw: string): { label: string; uri: string; region?: SarifRegion } {
+  const match = raw.match(/^(.+?) found in (.+)$/);
+  if (!match) {
+    // Shouldn't happen given the current scanner format, but fall back to
+    // the whole string as a label with no location rather than putting
+    // prose into artifactLocation.uri.
+    return { label: raw, uri: "unknown" };
+  }
+  const label = match[1]!.trim();
+  const loc = parseLocation(match[2]!);
+  return { label, uri: loc.uri, region: loc.region };
+}
+
 function buildSecretsResults(manifest: Manifest): SarifResult[] {
   const findings = manifest.secretsScan?.findings ?? [];
   return findings.map(finding => {
-    const loc = parseLocation(finding);
+    const { label, uri, region } = parseSecretFinding(finding);
     return {
       ruleId: "grc/secret-leak",
       level: "error" as const,
-      message: { text: `Potential credential detected in ${loc.uri}.` },
+      message: { text: `${label} detected in ${uri}.` },
       locations: [{
         physicalLocation: {
-          artifactLocation: { uri: loc.uri },
-          ...(loc.region ? { region: loc.region } : {}),
+          artifactLocation: { uri },
+          ...(region ? { region } : {}),
         },
       }],
       partialFingerprints: {
-        "grc.secret/primary": `${loc.uri}:${loc.region?.startLine ?? "0"}`,
+        "grc.secret/primary": `${uri}:${region?.startLine ?? "0"}:${label}`,
       },
     };
   });

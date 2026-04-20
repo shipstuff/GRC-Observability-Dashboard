@@ -6,6 +6,7 @@ import { evaluateEUAIAct, calcAIComplianceScore } from "../scanner/frameworks/eu
 import { assessRisks } from "../scanner/generators/risk-assessment.js";
 import { generateJsonExport } from "../scanner/generators/exports/json.js";
 import { generateCsvNistCsf, generateCsvEuAiAct, generateCsvRisks, generateCsvVulnerabilities } from "../scanner/generators/exports/csv.js";
+import { concatCsv } from "../scanner/generators/exports/concat.js";
 import { generateSarifExport } from "../scanner/generators/exports/sarif.js";
 import { generateOscalExport } from "../scanner/generators/exports/oscal.js";
 import { renderDashboard, renderRepoDetail, renderNistView, renderBranchComparison, renderTrendChart, renderAIComplianceView, renderInventoryView } from "./views/render.js";
@@ -785,20 +786,26 @@ app.get("/export/:owner/:name/:format{.+}", async (c) => {
 /**
  * Pick the main/master entry for each repo — the org-level export is an
  * "audit bundle" so we deliberately leave feature branches out.
+ *
+ * If a repo has no main/master manifest in KV (e.g. only feature-branch
+ * scans have landed so far), it is excluded entirely rather than silently
+ * substituting an arbitrary branch. The endpoint's documented semantics
+ * are "main/master only"; the audit bundle must honor that literally or
+ * it leaks WIP state into what auditors believe is production evidence.
  */
 function mainEntryPerRepo(all: StoredManifest[]): StoredManifest[] {
   const byRepo = new Map<string, StoredManifest>();
   for (const entry of all) {
     const repo = entry.manifest.repo;
     const isMain = entry.manifest.branch === "main" || entry.manifest.branch === "master";
+    if (!isMain) continue;
     const existing = byRepo.get(repo);
-    if (!existing) {
-      // Accept whatever we see first; will be replaced if a main turns up.
+    // Prefer "main" over "master" if a repo somehow has both. Otherwise
+    // just keep whichever we saw first; main and master aren't both
+    // expected in the same repo.
+    if (!existing || entry.manifest.branch === "main") {
       byRepo.set(repo, entry);
-      continue;
     }
-    const existingIsMain = existing.manifest.branch === "main" || existing.manifest.branch === "master";
-    if (isMain && !existingIsMain) byRepo.set(repo, entry);
   }
   return [...byRepo.values()];
 }
@@ -849,22 +856,5 @@ app.get("/export/all/:format{.+}", async (c) => {
       return c.json({ error: `Unknown org export format: ${format}. Try manifest.json, nist-csf.csv, eu-ai-act.csv, risks.csv, vulnerabilities.csv.` }, 400);
   }
 });
-
-/** Concatenate multiple per-repo CSVs into one table keeping a single header. */
-function concatCsv(csvs: string[]): string {
-  if (csvs.length === 0) return "";
-  const firstLines = csvs[0]!.split("\n");
-  const header = firstLines[0]!;
-  const rows: string[] = [header];
-  for (const csv of csvs) {
-    const lines = csv.split("\n");
-    // Skip the header on each subsequent file, drop trailing empty line.
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i]!;
-      if (line.length > 0) rows.push(line);
-    }
-  }
-  return rows.join("\n") + "\n";
-}
 
 export default app;
