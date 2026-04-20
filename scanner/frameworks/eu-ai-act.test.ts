@@ -144,14 +144,20 @@ describe("evaluateEUAIAct", () => {
       expect(r.status).toBe("not-applicable");
     });
 
-    it("fails when EU-market high-risk exists and no FRIA artifact", () => {
+    it("is partial-for-review when EU-market high-risk exists (Art. 27 scope depends on deployer type)", () => {
+      // Article 27(1) narrows FRIA to public authorities, private providers
+      // of public services, and Annex III 5(b)/(c) deployers. The scanner
+      // can't tell those apart from the manifest, so it reports "partial"
+      // asking for human scope verification rather than "fail" on every
+      // high-risk EU system.
       const r = evaluateEUAIAct(
         baseManifest({ aiSystems: [aiSystem({ riskTier: "high", euMarket: true })] }),
       ).find(x => x.articleId === "ART-27")!;
-      expect(r.status).toBe("fail");
+      expect(r.status).toBe("partial");
+      expect(r.evidence).toMatch(/public authority|public service|credit|insurance|Article 27/i);
     });
 
-    it("is partial when EU-market high-risk exists and FRIA artifact is present", () => {
+    it("stays partial when EU-market high-risk exists and FRIA artifact is present (template alone isn't sign-off)", () => {
       const r = evaluateEUAIAct(
         baseManifest({
           aiSystems: [aiSystem({ riskTier: "high", euMarket: true })],

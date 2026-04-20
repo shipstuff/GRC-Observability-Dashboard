@@ -15,7 +15,7 @@ On every push or PR, the scanner produces:
 | `incident-response-plan.md` | `docs/policies/` | NIST SP 800-61 based IRP |
 | `security.txt` | `.well-known/` | RFC 9116 security contact file |
 | `risk-assessment.md` | `.grc/` | Likelihood x impact matrix with framework mappings |
-| `nist-csf-report.md` | `.grc/` | 18 NIST CSF controls with SOC 2 + ISO 27001 cross-mapping |
+| `nist-csf-report.md` | `.grc/` | 18 NIST CSF 2.0 subcategories (across all six functions — Govern, Identify, Protect, Detect, Respond, Recover) with SOC 2 TSC 2017 (rev. 2022) + ISO/IEC 27001:2022 cross-mapping |
 | `security-headers-report.md` | `.grc/` | Header status + starter-snippet fixes (CSP typically needs manual review) |
 | `access-controls-report.md` | `.grc/` | Branch protection and auth findings |
 
@@ -156,7 +156,7 @@ Policies live at `docs/policies/` and `.well-known/security.txt` - those DO get 
 
 The dashboard shows compliance posture across all your repos:
 
-- Org-wide stats (compliance %, NIST CSF %, vulnerabilities, secrets)
+- Org-wide stats (score vs. mapped controls, NIST CSF coverage, vulnerabilities, secrets)
 - Per-repo detail with data collection, headers, TLS, deps, access controls, artifacts
 - NIST CSF tab with per-function scores and SOC 2 / ISO 27001 cross-references
 - **AI tab** with detected AI systems (provider, SDK, category), risk tier, and data flows
@@ -271,7 +271,7 @@ GRC-Observability-Dashboard/
     index.ts                 # Scanner entry point
     rules/                   # Detection rules
     generators/              # Report generators
-    frameworks/              # NIST CSF + SOC 2 + ISO 27001 cross-mappings
+    frameworks/              # NIST CSF 2.0 + EU AI Act + cross-mappings to SOC 2 TSC / ISO 27001:2022 / ISO/IEC 42001:2023 / NIST AI RMF
     templates/               # Handlebars policy templates
     ai/                      # Optional AI enhancement layer
   examples/

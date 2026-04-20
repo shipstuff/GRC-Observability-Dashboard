@@ -204,7 +204,7 @@ function buildAccessControlResults(manifest: Manifest): SarifResult[] {
     return [{
       ruleId: "grc/unprotected-route",
       level: "warning",
-      message: { text: "Branch protection is disabled on this repository. Enabling branch protection with required reviewers is a baseline governance control for NIST CSF PR.AC-4 and SOC 2 CC6.1." },
+      message: { text: "Branch protection is disabled on this repository. Enabling branch protection with required reviewers is a baseline governance control for NIST CSF 2.0 PR.AA-05 and SOC 2 CC6.1." },
       locations: [{
         physicalLocation: { artifactLocation: { uri: ".github/branch-protection.md" } },
       }],

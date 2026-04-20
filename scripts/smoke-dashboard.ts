@@ -143,7 +143,7 @@ function summaryFor(m: Manifest): RepoSummary {
 }
 
 function functionScoresFor(summary: RepoSummary) {
-  return ["Identify", "Protect", "Detect", "Respond", "Recover"].map(name => {
+  return ["Govern", "Identify", "Protect", "Detect", "Respond", "Recover"].map(name => {
     const controls = summary.nistResults.filter(r => r.control.function === name);
     const applicable = controls.filter(r => r.status !== "not-applicable");
     const passed = applicable.filter(r => r.status === "pass").length;

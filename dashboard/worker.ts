@@ -237,7 +237,7 @@ function calcNistScore(results: ReturnType<typeof evaluateFramework>): number {
 }
 
 export function getNistFunctionScores(results: ReturnType<typeof evaluateFramework>): FunctionScore[] {
-  return ["Identify", "Protect", "Detect", "Respond", "Recover"].map(fn => {
+  return ["Govern", "Identify", "Protect", "Detect", "Respond", "Recover"].map(fn => {
     const controls = results.filter(r => r.control.function === fn);
     const applicable = controls.filter(r => r.status !== "not-applicable");
     const passed = applicable.filter(r => r.status === "pass").length;

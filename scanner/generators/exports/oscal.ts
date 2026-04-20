@@ -6,7 +6,7 @@ import type { ControlResult } from "../framework-report.js";
  *
  * Two assessment results, one per framework:
  *   1. NIST CSF 2.0 evaluation — cites framework subcategory IDs directly
- *      (e.g. "ID.GV-1") since NIST CSF is the primary framework.
+ *      (e.g. "GV.PO-01") since NIST CSF 2.0 is the primary framework.
  *   2. EU AI Act evaluation — cites article identifiers ("ART-5") with
  *      regulation metadata in props.
  *
