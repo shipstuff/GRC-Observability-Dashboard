@@ -793,20 +793,22 @@ function layout(
       var tip = document.getElementById('tt-' + chartId);
       if (tip) tip.classList.remove('visible');
     }
-    function checkProduction(owner, name, btn) {
+    function checkProduction(owner, name, btn, explicitBranch) {
       btn.disabled = true;
       btn.textContent = 'SCANNING...';
-      // Scope the lookup to THIS repo card's controls bar — querying the
-      // whole document would match the first open card's combobox when
-      // multiple cards are expanded. Read from the combobox's data-value
-      // attribute (the old select.value no longer applies).
-      var branch = 'main';
-      var bar = btn.closest('.controls-bar');
-      var combo = bar ? bar.querySelector('.branch-combo') : null;
-      if (combo) {
-        var val = combo.getAttribute('data-value');
-        if (val) branch = val;
+      // v2 detail view passes the repo's scanned branch in directly. v1
+      // cards still carry a branch combobox in a .controls-bar wrapper,
+      // so fall back to that if no explicit branch was supplied.
+      var branch = explicitBranch || null;
+      if (!branch) {
+        var bar = btn.closest('.controls-bar');
+        var combo = bar ? bar.querySelector('.branch-combo') : null;
+        if (combo) {
+          var val = combo.getAttribute('data-value');
+          if (val) branch = val;
+        }
       }
+      branch = branch || 'main';
       fetch('/api/check-production/' + owner + '/' + name + '?branch=' + encodeURIComponent(branch), { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -972,8 +974,14 @@ export function renderDashboard(
     ? opts.repoDetailHtml
     : `<div class="v2-empty-state"><p>Select a repo from the left to view compliance detail.</p></div>`;
 
+  // data-mobile-view drives the <=700px CSS: "list" hides the detail pane,
+  // "detail" hides the sidebar. Initial value: list if no repo detail has
+  // been rendered yet (user hasn't picked one on mobile), detail otherwise
+  // (server rendered one, which on mobile means "you clicked a row").
+  const initialMobileView = opts.selectedRepo && opts.repoDetailHtml ? "detail" : "list";
+
   const shellHtml = `
-    <div class="v2-shell">
+    <div class="v2-shell" id="v2-shell" data-mobile-view="${initialMobileView}">
       ${topbarHtml}
       <div class="v2-panes" id="v2-panes">
         ${sidebarHtml}
@@ -990,6 +998,27 @@ export function renderDashboard(
           el.style.display = repo.includes(q) ? '' : 'none';
         });
       }
+      // Mobile back button: flip the shell from detail → list without a
+      // full page load. Listed here rather than inline so it stays in the
+      // one place future mobile transitions will live.
+      function v2ShowList() {
+        var shell = document.getElementById('v2-shell');
+        if (shell) shell.setAttribute('data-mobile-view', 'list');
+      }
+      // On mobile, tapping a repo row should flip the shell to detail view
+      // before the href navigation finishes — the new page arrives with
+      // data-mobile-view="detail" already set, but flipping early keeps
+      // the transition from flashing the old list.
+      (function() {
+        var mq = window.matchMedia('(max-width: 700px)');
+        if (!mq.matches) return;
+        document.querySelectorAll('.v2-repo-row').forEach(function(el) {
+          el.addEventListener('click', function() {
+            var shell = document.getElementById('v2-shell');
+            if (shell) shell.setAttribute('data-mobile-view', 'detail');
+          });
+        });
+      })();
     </script>`;
 
   // v2 is full-bleed — it has its own topbar, so we skip layout()'s v1
@@ -1201,7 +1230,7 @@ export function renderRepoDetail(
     </div>`;
 
   const checkProdBtn = hasSiteUrl
-    ? `<button class="check-prod-btn" onclick="checkProduction('${owner}','${name}',this)">CHECK PRODUCTION</button><span class="check-prod-result"></span>`
+    ? `<button class="check-prod-btn" onclick="checkProduction('${owner}','${name}',this,'${esc(manifest.branch)}')">CHECK PRODUCTION</button><span class="check-prod-result"></span>`
     : "";
 
   const activeTab: RepoDetailTab = opts.tab ?? "overview";
@@ -1243,6 +1272,7 @@ export function renderRepoDetail(
 
   return `
     <div class="v2-detail-head">
+      <a class="v2-back-btn" href="#" onclick="event.preventDefault();v2ShowList();">\u2190 REPOS</a>
       <div class="v2-detail-head-row">
         <span class="v2-detail-title">${esc(manifest.repo)}</span>
         <span class="v2-detail-meta">${esc(manifest.branch)} · ${esc(manifest.commit)} · ${timeAgo(manifest.scanDate)}</span>
