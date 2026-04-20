@@ -572,13 +572,50 @@ app.get("/", async (c) => {
     branchesPerRepo.set(repo, branches);
   }
 
-  const summaries = [...byRepo.values()].map(m => summarize(m.manifest, m.siteUrl));
+  const entries = [...byRepo.values()];
+  const summaries = entries.map(m => summarize(m.manifest, m.siteUrl));
 
   // Sort by most recent scan
   summaries.sort((a, b) => new Date(b.scanDate).getTime() - new Date(a.scanDate).getTime());
 
+  // v2 two-pane: server-render the right detail pane for the selected repo
+  // (from ?repo=owner/name). Defaults to the freshest repo so users land on
+  // something useful instead of an empty state. `?tab=` picks the content
+  // inside the detail pane.
+  const repoQuery = parseRepoQuery(c.req.query("repo"));
+  const selectedRepo = (repoQuery && summaries.find(s => s.repo === repoQuery))
+    ? repoQuery
+    : summaries[0]?.repo;
+  const selectedEntry = selectedRepo ? entries.find(e => e.manifest.repo === selectedRepo) : undefined;
+
+  const validTabs = new Set(["overview", "nist", "ai", "branches", "trends"]);
+  const rawTab = c.req.query("tab");
+  const tab: "overview" | "nist" | "ai" | "branches" | "trends" =
+    rawTab && validTabs.has(rawTab) ? (rawTab as any) : "overview";
+
+  let repoDetailHtml: string | undefined;
+  if (selectedEntry && selectedRepo) {
+    const detailSummary = summarize(selectedEntry.manifest, selectedEntry.siteUrl);
+    const detailOpts: Parameters<typeof renderRepoDetail>[3] = { tab };
+    if (tab === "nist") {
+      detailOpts.functionScores = getNistFunctionScores(detailSummary.nistResults);
+    } else if (tab === "branches") {
+      detailOpts.branchSummaries = all
+        .filter(e => e.manifest.repo === selectedRepo)
+        .map(e => summarize(e.manifest, e.siteUrl));
+    } else if (tab === "trends") {
+      detailOpts.history = await getHistory(c.env.GRC_KV, selectedRepo, selectedEntry.manifest.branch);
+    }
+    repoDetailHtml = renderRepoDetail(
+      selectedEntry.manifest,
+      detailSummary,
+      { policyServed: selectedEntry.policyServed, policyServedCheckedAt: selectedEntry.policyServedCheckedAt },
+      detailOpts,
+    );
+  }
+
   const orgName = c.env.ORG_NAME || "";
-  return c.html(renderDashboard(summaries, branchesPerRepo, orgName));
+  return c.html(renderDashboard(summaries, branchesPerRepo, orgName, { selectedRepo, repoDetailHtml }));
 });
 
 app.get("/repo/:owner/:name", async (c) => {
