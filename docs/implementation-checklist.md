@@ -104,15 +104,15 @@ The single source of truth for the GRC Observability Dashboard roadmap. Each ite
 - **GRC concept:** Risk treatment options (accept, mitigate, transfer, avoid)
 
 ### Item 11: Framework Mapping — DONE
-- [x] NIST CSF 2.0 as primary framework (18 controls mapped)
-- [x] Each scan check maps to NIST CSF subcategories with pass/partial/fail/N/A evaluation
-- [x] Per-function compliance percentages (Identify, Protect, Detect, Respond, Recover)
-- [x] Cross-mapped to SOC 2 Trust Service Criteria (12 controls)
-- [x] Cross-mapped to ISO 27001 Annex A (22 controls)
+- [x] NIST CSF 2.0 as primary framework — 18 subcategories mapped (NIST.CSWP.29, February 2024)
+- [x] Each scan check maps to CSF 2.0 subcategory IDs (`GV.PO-01`, `ID.AM-01`, `PR.AA-01`, etc.) with pass/partial/fail/N/A evaluation
+- [x] Per-function scores across all six CSF 2.0 functions: **Govern, Identify, Protect, Detect, Respond, Recover**
+- [x] Cross-mapped to SOC 2 Trust Services Criteria, 2017 edition (revised 2022)
+- [x] Cross-mapped to ISO/IEC 27001:2022 Annex A (two-component IDs matching the current standard; 2013's four-component codes are obsolete)
 - [x] Evidence strings for every control assessment
 - [x] Gaps section highlighting failures with specific evidence
 - **GRC concept:** Control frameworks, control objectives, evidence collection
-- **Known limitation:** 18 of NIST CSF 2.0's ~100 subcategories. "75% NIST CSF compliant" is 75% of our 18 controls, not the full framework.
+- **Known limitation:** 18 of NIST CSF 2.0's ~106 subcategories are evaluated. The overall score reports % of mapped controls passing — it is **not** a claim of full framework compliance. Report titles use "Coverage Report" / "Assessment Report" rather than "Compliance Report" for this reason.
 
 ## Phase 4: AI Enhancement Layer — VALIDATED
 
@@ -262,7 +262,7 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 
 ## Phase 8: AI Compliance Layer — DONE
 
-**Why this direction:** The EU AI Act becomes enforceable August 2026 with fines up to €35M or 7% of global turnover. The scanner already detects AI SDK usage via dependency scanning but does nothing AI-compliance-specific with those findings. This phase turns "security compliance scanner" into "security + AI compliance scanner."
+**Why this direction:** The EU AI Act (Regulation (EU) 2024/1689) applies in staggered phases under Article 113 — prohibitions from 2 Feb 2025, governance and GPAI from 2 Aug 2025, most high-risk provisions from 2 Aug 2026, and Article 6(1) products embedded in harmonized legislation from 2 Aug 2027. Article 99 sets tiered fines: up to €35M or 7% of worldwide annual turnover for Article 5 prohibited practices; €15M or 3% for most other obligations; €7.5M or 1% for supplying incorrect information. The scanner already detects AI SDK usage via dependency scanning but did nothing AI-compliance-specific with those findings. This phase turns "security compliance scanner" into "security + AI compliance scanner."
 
 **Our own meta-obligation:** The scanner uses Anthropic/OpenAI in its AI layer. That makes the dashboard itself an "AI system" under the EU AI Act. When we ship this, the scanner should scan itself and produce its own AI compliance documentation.
 
@@ -306,12 +306,12 @@ Optional module — scanner works fully without AI. If an API key is provided, A
 
 ### Sub-phase C: EU AI Act Framework Mapping — DONE
 - [x] New framework file `scanner/frameworks/eu-ai-act.ts` with 13 articles as `AIFrameworkControl` entries and per-article `check(manifest)` / `evidence(manifest)` functions
-- [x] Covers Articles 4 (AI literacy), 5 (prohibited), 9 (risk management), 10 (data governance), 11 (technical docs), 12 (record keeping), 13 (transparency), 14 (human oversight), 15 (accuracy/robustness), 27 (FRIA), 50 (transparency to users), 60 (registration), 73 (incident notification)
+- [x] Covers Articles 4 (AI literacy), 5 (prohibited practices), 9 (risk management), 10 (data governance), 11 (technical documentation), 12 (record-keeping), 13 (transparency to deployers), 14 (human oversight), 15 (accuracy / robustness / cybersecurity), 27 (FRIA), 50 (transparency to users), **71 (EU database for Annex III high-risk AI)** — registration obligations live in Articles 49 (providers) and 26(8) (public-sector deployers) — and 73 (serious incident reporting)
 - [x] Articles grouped by NIST AI RMF phase (Govern/Map/Measure/Manage) to parallel NIST CSF's 5-function structure
 - [x] Extended `scanner/frameworks/cross-map.ts` with `AICrossMapping` + `AI_CROSS_MAPPINGS` — each article cross-referenced to NIST AI RMF subcategories and ISO/IEC 42001 Annex A controls
 - [x] New report generator `scanner/generators/ai-compliance-report.ts` written to `.grc/ai-compliance-report.md` on every scan (mirrors NIST CSF report layout)
 - [x] `evaluateEUAIAct(manifest)`, `calcAIComplianceScore(results)`, and `getAIPhaseScores(results)` exported for dashboard consumption
-- [x] Risk-tier-based applicability: high-risk-only articles (9/11/12/13/14/15/27/60/73) show `not-applicable` unless a `high`/`prohibited` system is detected. Article 5 always applies. Article 50 applies at `limited` and above. Articles 27 and 60 additionally require `eu_market: true`.
+- [x] Risk-tier-based applicability: high-risk-only articles (9/11/12/13/14/15/27/71/73) show `not-applicable` unless a `high`/`prohibited` system is detected. Article 5 always applies. Article 50 applies at `limited` and above. Articles 27 (FRIA) and 71 (EU database) additionally require `eu_market: true`; Article 27 further requires a specific deployer type (public authority, private provider of public services, or Annex III 5(b)/(c) credit/insurance deployer).
 - [x] `euMarket` field added to `AISystem`; propagated at classifier time from the `ai_systems:` override or defaulted from `jurisdiction` (GDPR → EU market by default)
 - **GRC concept:** Framework pluralism — same findings, multiple framework views
 - **Known limitation:** Many articles resolve to `partial` with instructional evidence because they are program-level obligations the scanner cannot auto-verify (AI literacy training, runtime logging, registration status). The tool surfaces the obligation; closing it is off-scanner.

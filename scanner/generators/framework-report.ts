@@ -38,7 +38,7 @@ export function evaluateFramework(manifest: Manifest): ControlResult[] {
 }
 
 function calcFunctionScores(results: ControlResult[]): FunctionScore[] {
-  const functions = ["Identify", "Protect", "Detect", "Respond", "Recover"] as const;
+  const functions = ["Govern", "Identify", "Protect", "Detect", "Respond", "Recover"] as const;
 
   return functions.map(fn => {
     const controls = results.filter(r => r.control.function === fn);
@@ -83,20 +83,21 @@ export function generateFrameworkReport(
     : 100;
 
   const lines: string[] = [
-    `# NIST CSF Compliance Report — ${config.siteName}\n`,
+    `# NIST CSF Coverage Report — ${config.siteName}\n`,
     `**Scope:** ${config.siteUrl}`,
     `**Date:** ${new Date(manifest.scanDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`,
-    `**Framework:** NIST Cybersecurity Framework (CSF) 2.0`,
+    `**Framework:** NIST Cybersecurity Framework (CSF) 2.0 (NIST.CSWP.29, February 2024)`,
+    `**Cross-references:** SOC 2 Trust Services Criteria, 2017 edition (revised 2022); ISO/IEC 27001:2022 Annex A.`,
     `**Branch:** ${manifest.branch} (${manifest.commit})\n`,
     "---\n",
 
     // Overall score
-    `## Overall Compliance: ${overallPct}%\n`,
+    `## Overall Score: ${overallPct}%\n`,
     `${progressBar(overallPct, 30)} ${overallPct}%\n`,
-    `${overallPassed} passed, ${overallPartial} partial, ${applicable.length - overallPassed - overallPartial} failed out of ${applicable.length} applicable controls\n`,
+    `${overallPassed} passed, ${overallPartial} partial, ${applicable.length - overallPassed - overallPartial} failed out of ${applicable.length} mapped controls. This score reflects ${applicable.length} of NIST CSF 2.0's ~106 subcategories — it is **not** a claim of full framework compliance.\n`,
 
     // Function breakdown
-    "## Compliance by Function\n",
+    "## Score by Function\n",
     "| Function | Score | Status |",
     "|----------|-------|--------|",
   ];
@@ -111,7 +112,7 @@ export function generateFrameworkReport(
   // Detailed results by function
   lines.push("## Detailed Control Assessment\n");
 
-  for (const fn of ["Identify", "Protect", "Detect", "Respond", "Recover"]) {
+  for (const fn of ["Govern", "Identify", "Protect", "Detect", "Respond", "Recover"]) {
     const fnResults = results.filter(r => r.control.function === fn);
     const score = scores.find(s => s.name === fn)!;
 

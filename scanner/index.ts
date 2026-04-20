@@ -326,7 +326,7 @@ async function main() {
   const passed = applicable.filter(r => r.status === "pass").length;
   const partial = applicable.filter(r => r.status === "partial").length;
   const overallPct = Math.round(((passed + partial * 0.5) / applicable.length) * 100);
-  console.log(`📄 NIST CSF report written to ${frameworkReportPath} (${overallPct}% compliant)`);
+  console.log(`📄 NIST CSF report written to ${frameworkReportPath} (${overallPct}% of mapped controls passing)`);
 
   // Generate EU AI Act compliance report (Phase 8 Sub-phase C).
   // Articles evaluate against the manifest — scoping by risk tier and euMarket

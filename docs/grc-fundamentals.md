@@ -10,30 +10,35 @@ Quick reference for core GRC concepts as they relate to this project.
 
 ## Key Frameworks
 
-### NIST Cybersecurity Framework (CSF)
-Five core functions:
-1. **Identify** — Know your assets, data, and risks
-2. **Protect** — Implement safeguards (access controls, encryption, training)
-3. **Detect** — Monitor for anomalies and incidents
-4. **Respond** — Have a plan for when incidents occur
-5. **Recover** — Restore capabilities after an incident
+### NIST Cybersecurity Framework (CSF) 2.0
+Published February 2024 (NIST.CSWP.29). **Six** core functions — the previous five functions, plus `Govern` newly promoted to the organizational core:
+1. **Govern (GV)** — Establish and monitor cybersecurity risk management strategy, expectations, and policy (NEW in 2.0)
+2. **Identify (ID)** — Know your assets, data, dependencies, and risks
+3. **Protect (PR)** — Implement safeguards (identity, access, data security, platform security, training)
+4. **Detect (DE)** — Monitor for adverse events
+5. **Respond (RS)** — Manage and communicate during incidents
+6. **Recover (RC)** — Restore assets and operations after an incident
+
+Subcategory IDs in CSF 2.0 are zero-padded (e.g. `ID.AM-01`, `PR.AA-01`); older `ID.AM-1`-style IDs are CSF 1.1.
 
 ### SOC 2
-Five Trust Service Criteria:
-1. **Security** — Protection against unauthorized access
+The AICPA's Trust Services Criteria, 2017 edition (revised 2022). Five Trust Services Categories:
+1. **Security** — Protection against unauthorized access (mandatory baseline)
 2. **Availability** — System is available for operation and use
 3. **Processing Integrity** — System processing is complete, valid, accurate
 4. **Confidentiality** — Information designated as confidential is protected
 5. **Privacy** — Personal information is collected, used, retained properly
 
-Type I = controls exist at a point in time. Type II = controls work over a period (usually 6-12 months).
+Type I = a point-in-time attestation that controls exist and are designed appropriately. Type II = a period-of-time attestation (usually 3-12 months) that controls operated effectively.
 
-### ISO 27001
-International standard for Information Security Management Systems (ISMS). Has ~93 controls across:
-- Organizational controls
-- People controls
-- Physical controls
-- Technological controls
+### ISO/IEC 27001:2022
+International standard for Information Security Management Systems (ISMS), 2022 revision. Annex A lists 93 controls organised into four themes:
+- `A.5` Organizational (37 controls)
+- `A.6` People (8 controls)
+- `A.7` Physical (14 controls)
+- `A.8` Technological (34 controls)
+
+Codes use two components (e.g. `A.5.23`, `A.8.9`). The 2013 four-component form (`A.8.1.1`, `A.12.6.1`) is obsolete — the transition ended October 2025.
 
 ### GDPR (General Data Protection Regulation)
 EU regulation. Key requirements:

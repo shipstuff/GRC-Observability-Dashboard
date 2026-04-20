@@ -78,14 +78,14 @@ describe("CSV exports", () => {
   it("emits one row per control + a header", () => {
     const nist: ControlResult[] = [
       {
-        control: { id: "ID.GV-1", function: "Identify", category: "Governance", subcategory: "x", description: "y", check: () => "pass", evidence: () => "" },
-        status: "pass", evidence: "ok", soc2: ["CC1.1"], iso27001: ["A.5"],
+        control: { id: "GV.PO-01", function: "Govern", category: "Policy", subcategory: "x", description: "y", check: () => "pass", evidence: () => "" },
+        status: "pass", evidence: "ok", soc2: ["CC1.1"], iso27001: ["A.5.1"],
       },
     ];
     const out = generateCsvNistCsf(baseManifest(), nist);
     const lines = out.trim().split("\n");
     expect(lines.length).toBe(2); // header + 1 row
-    expect(lines[1]).toContain("ID.GV-1");
+    expect(lines[1]).toContain("GV.PO-01");
     expect(lines[1]).toContain("CC1.1");
   });
 
@@ -180,7 +180,7 @@ describe("OSCAL export", () => {
 
   it("emits one OSCAL result per framework — NIST always, EU AI Act only when results present", () => {
     const nistResults: ControlResult[] = [
-      { control: { id: "ID.GV-1", function: "Identify", category: "Governance", subcategory: "x", description: "y", check: () => "pass", evidence: () => "" }, status: "pass", evidence: "ok", soc2: [], iso27001: [] },
+      { control: { id: "GV.PO-01", function: "Govern", category: "Policy", subcategory: "x", description: "y", check: () => "pass", evidence: () => "" }, status: "pass", evidence: "ok", soc2: [], iso27001: [] },
     ];
 
     // No EU AI Act results → only one OSCAL result in the output.

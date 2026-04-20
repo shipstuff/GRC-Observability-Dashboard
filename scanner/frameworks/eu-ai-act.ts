@@ -121,15 +121,15 @@ export const EU_AI_ACT_CONTROLS: AIFrameworkControl[] = [
     article: 5,
     title: "Prohibited AI practices",
     phase: "Map",
-    description: "Placing on the market or using AI for social scoring, subliminal manipulation, real-time biometric identification in public, or exploiting vulnerabilities is prohibited.",
+    description: "Article 5(1) prohibits eight categories of AI practice: (a) subliminal / manipulative techniques causing significant harm; (b) exploitation of vulnerabilities of specific groups; (c) social scoring by public or private actors leading to detrimental treatment; (d) predictive policing based solely on profiling; (e) untargeted scraping of facial images to build recognition databases; (f) emotion inference in workplace or educational institutions; (g) biometric categorization inferring sensitive attributes; (h) real-time remote biometric identification in public spaces by law enforcement (with narrow exceptions).",
     check: (m) => prohibitedSystems(m).length > 0 ? "fail" : "pass",
     evidence: (m) => {
       const p = prohibitedSystems(m);
       if (p.length > 0) {
         const locs = p.map(s => `${s.provider} @ ${s.location}`).join("; ");
-        return `Flagged as potentially prohibited: ${locs}. Verify purpose; if misclassified, override in .grc/config.yml via ai_systems.risk_tier. If correct, placing this on the EU market is prohibited.`;
+        return `Flagged as potentially prohibited: ${locs}. Verify which of Article 5(1)(a)–(h) applies; if the scanner misclassified, override in .grc/config.yml via ai_systems.risk_tier. If the classification is correct, the system cannot be placed on the EU market.`;
       }
-      if (hasAny(m)) return "No AI systems classified as prohibited.";
+      if (hasAny(m)) return "No AI systems classified as prohibited under Article 5(1)(a)–(h).";
       return "No AI systems detected.";
     },
   },
@@ -168,7 +168,7 @@ export const EU_AI_ACT_CONTROLS: AIFrameworkControl[] = [
     },
     evidence: (m) => {
       if (highRiskSystems(m).length === 0) return "No high-risk AI systems detected.";
-      return "Automatic event logging is required for high-risk AI systems (six-month minimum retention recommended by guidance). Scanner cannot verify runtime logging — confirm your AI call paths emit structured logs with input/output hashes, user ID, and timestamps.";
+      return "Automatic event logging over the system's operational lifetime is required by Article 12(1). Retention is set by Article 12(3) (appropriate to the intended purpose) and, for providers, cross-referenced with Article 19's separate 10-year documentation retention obligation. The scanner cannot verify runtime logging — confirm AI call paths emit structured logs with request hashes, user identifiers, timestamps, and outcome classifications.";
     },
   },
 
@@ -212,19 +212,23 @@ export const EU_AI_ACT_CONTROLS: AIFrameworkControl[] = [
     article: 27,
     title: "Fundamental Rights Impact Assessment (FRIA)",
     phase: "Measure",
-    description: "Deployers of high-risk AI placed on the EU market in certain sectors must perform a FRIA before first use.",
+    description: "Article 27(1) requires a FRIA only from specific categories of deployer: (a) bodies governed by public law; (b) private entities providing public services; or (c) deployers of certain Annex III point 5 systems (credit scoring under 5(b); risk assessment and pricing for life/health insurance under 5(c)). A general commercial deployer of an Annex III high-risk system is not automatically in scope for Article 27.",
     check: (m) => {
       if (euMarketHighRisk(m).length === 0) return "not-applicable";
+      // We don't know the deployer's legal nature from the scan, so this
+      // check flags for review rather than failing outright. The template
+      // artifact nudges the deployer to complete the scoping themselves.
       if (m.artifacts.fria === "present") return "partial";
-      return "fail";
+      return "partial";
     },
     evidence: (m) => {
       const scoped = euMarketHighRisk(m);
       if (scoped.length === 0) return "No EU-market high-risk AI systems detected — FRIA not required.";
+      const base = `High-risk systems on the EU market: ${listProviders(scoped)}. Whether Article 27 applies depends on the deployer: public authority, private provider of a public service, or credit/insurance-specific Annex III deployer.`;
       if (m.artifacts.fria === "present") {
-        return `FRIA template generated at fria.md for EU-market high-risk systems: ${listProviders(scoped)}. The template contains placeholder sections (affected persons, specific risks of harm, oversight measures) that must be completed by a human and signed before first use.`;
+        return `${base} FRIA template generated at fria.md — the deployer must first confirm Article 27 scope, then complete the placeholder sections (affected persons, specific risks, oversight measures) and sign before first use.`;
       }
-      return `FRIA required for EU-market high-risk systems: ${listProviders(scoped)}. Scanner will generate a fria.md template on the next run.`;
+      return `${base} If in scope, a FRIA is required before first use; the scanner will generate a fria.md template on the next run.`;
     },
   },
 
@@ -296,11 +300,11 @@ export const EU_AI_ACT_CONTROLS: AIFrameworkControl[] = [
   },
 
   {
-    id: "ART-60",
-    article: 60,
-    title: "EU database registration",
+    id: "ART-71",
+    article: 71,
+    title: "EU database registration (Annex III high-risk)",
     phase: "Manage",
-    description: "Providers of stand-alone high-risk AI must register the system in the EU public database before placing on the market.",
+    description: "Article 71 establishes the EU database for high-risk AI systems listed in Annex III. The underlying registration obligations live in Article 49 (providers, before placing on the market) and Article 26(8) (deployers that are public authorities, agencies of the Union, or bodies governed by public law, before first use).",
     check: (m) => {
       if (euMarketHighRisk(m).length === 0) return "not-applicable";
       return "fail";
@@ -308,7 +312,7 @@ export const EU_AI_ACT_CONTROLS: AIFrameworkControl[] = [
     evidence: (m) => {
       const scoped = euMarketHighRisk(m);
       if (scoped.length === 0) return "No EU-market high-risk AI systems detected — registration not required.";
-      return `Registration in the EU database is required before market placement for: ${listProviders(scoped)}. Scanner cannot verify registration — track out-of-band and record the registration ID in your compliance documentation.`;
+      return `Registration in the EU database (Article 71) is required for: ${listProviders(scoped)}. Providers register under Article 49 before market placement; certain deployers register under Article 26(8) before first use. Scanner cannot verify registration — track out-of-band and record the registration ID in your compliance documentation.`;
     },
   },
 
@@ -328,7 +332,7 @@ export const EU_AI_ACT_CONTROLS: AIFrameworkControl[] = [
       if (m.artifacts.incidentResponsePlan === "missing") {
         return "No incident response plan present — required baseline for serious-incident reporting under Article 73.";
       }
-      return `Incident response plan: ${m.artifacts.incidentResponsePlan}. Verify it includes AI-specific incident types (hallucination causing harm, discrimination, unexpected autonomy) and the market-surveillance-authority notification timeline (without undue delay, in any event within 15 days).`;
+      return `Incident response plan: ${m.artifacts.incidentResponsePlan}. Verify it includes AI-specific incident types (hallucination causing harm, discrimination, unexpected autonomy) and the tiered Article 73(4) reporting deadlines: at the latest 15 days for serious incidents; 10 days when an incident led to a person's death; 2 days for widespread infringement or serious and irreversible disruption of critical infrastructure.`;
     },
   },
 ];

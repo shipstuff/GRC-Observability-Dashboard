@@ -36,10 +36,11 @@ export function generateAIComplianceReport(
   const euMarketCount = manifest.aiSystems.filter(s => s.euMarket === true).length;
 
   const lines: string[] = [
-    `# EU AI Act Compliance Report — ${config.siteName}\n`,
+    `# EU AI Act Assessment Report — ${config.siteName}\n`,
     `**Scope:** ${config.siteUrl}`,
     `**Date:** ${new Date(manifest.scanDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`,
-    `**Framework:** Regulation (EU) 2024/1689 (EU AI Act)`,
+    `**Framework:** Regulation (EU) 2024/1689 (EU AI Act), as published in OJ L, 12 July 2024.`,
+    `**Cross-references:** NIST AI Risk Management Framework (NIST AI 100-1, v1.0, January 2023); ISO/IEC 42001:2023 Annex A.`,
     `**Branch:** ${manifest.branch} (${manifest.commit})\n`,
     "---\n",
     `## AI Inventory Snapshot`,
@@ -47,10 +48,10 @@ export function generateAIComplianceReport(
     `- High-risk or prohibited tier: **${highRiskCount}**`,
     `- Declared on EU market: **${euMarketCount}**\n`,
     "---\n",
-    `## Overall Compliance: ${overallPct}%\n`,
+    `## Overall Score: ${overallPct}%\n`,
     `${progressBar(overallPct, 30)} ${overallPct}%\n`,
-    `${passed} passed, ${partial} partial, ${failed} failed out of ${applicable.length} applicable articles (${results.length - applicable.length} not applicable).\n`,
-    `## Compliance by NIST AI RMF Phase\n`,
+    `${passed} passed, ${partial} partial, ${failed} failed out of ${applicable.length} applicable articles (${results.length - applicable.length} not applicable). This is a scan-derived assessment, not a conformity declaration.\n`,
+    `## Score by NIST AI RMF Phase\n`,
     "| Phase | Score | Status |",
     "|-------|-------|--------|",
   ];
@@ -146,7 +147,7 @@ export function generateAIComplianceReport(
   lines.push("## Methodology\n");
   lines.push("Articles are evaluated against the repo's scan manifest and AI-system classifications. Many obligations are program-level and cannot be verified from code alone; those resolve to **partial** with instructional evidence pointing to what still needs documentation.");
   lines.push("");
-  lines.push("Applicability follows EU AI Act Article 6 and Annex III: most obligations (Art. 9/11/12/13/14/15/27/60/73) are marked **N/A** unless a system classified as `high` or `prohibited` is detected. Article 5 (prohibited practices) always applies. Article 50 (user transparency) applies when any system is at least `limited` tier. Article 27 (FRIA) and Article 60 (registration) additionally require the system to be on the EU market (`eu_market: true` in `.grc/config.yml` or `gdpr` in jurisdiction defaults).");
+  lines.push("Applicability follows EU AI Act Article 6 and Annex III: most high-risk obligations (Art. 9/11/12/13/14/15/27/71/73) are marked **N/A** unless a system classified as `high` or `prohibited` is detected. Article 5 (prohibited practices) always applies. Article 50 (user transparency) applies when any system is at least `limited` tier. Article 27 (FRIA) applies only to specific deployer categories — public bodies, private providers of public services, and deployers of Annex III point 5 credit/insurance systems. Article 71 (EU database) covers high-risk Annex III systems placed on the EU market; the underlying registration obligations live in Article 49 (providers) and Article 26(8) (certain public-sector deployers).");
   lines.push("");
   lines.push("**Scoring:** Pass = 1.0, Partial = 0.5, Fail = 0, N/A = excluded from calculation.");
   lines.push("");

@@ -48,7 +48,7 @@ export function assessRisks(
         severity: "critical",
         status: "open",
         mitigation: "Run `npm audit fix` or update affected packages. Review each CVE for applicability to your usage.",
-        framework: ["NIST CSF ID.RA-1", "SOC 2 CC7.1", "ISO 27001 A.12.6.1"],
+        framework: ["NIST CSF ID.RA-01", "SOC 2 CC7.1", "ISO 27001 A.8.8"],
       });
     }
     if (d.highVulnerabilities > 0) {
@@ -62,7 +62,7 @@ export function assessRisks(
         severity: "high",
         status: "open",
         mitigation: "Review each vulnerability. Apply patches where available. If no patch exists, evaluate workarounds or alternative packages.",
-        framework: ["NIST CSF ID.RA-1", "SOC 2 CC7.1"],
+        framework: ["NIST CSF ID.RA-01", "SOC 2 CC7.1"],
       });
     }
   }
@@ -85,7 +85,7 @@ export function assessRisks(
         severity: hasCsp ? "critical" : "medium",
         status: "open",
         mitigation: "Add security headers middleware to Express application. See security-headers-report.md for copy-paste implementation.",
-        framework: ["NIST CSF PR.DS-2", "SOC 2 CC6.1", "ISO 27001 A.13.1.1"],
+        framework: ["NIST CSF PR.DS-02", "SOC 2 CC6.1", "ISO 27001 A.8.20"],
       });
     }
   }
@@ -103,7 +103,7 @@ export function assessRisks(
         severity: "critical",
         status: "open",
         mitigation: "Configure HTTP to HTTPS redirect in your server or reverse proxy.",
-        framework: ["NIST CSF PR.DS-2", "SOC 2 CC6.7", "GDPR Art. 32"],
+        framework: ["NIST CSF PR.DS-02", "SOC 2 CC6.7", "GDPR Art. 32"],
       });
     }
 
@@ -123,7 +123,7 @@ export function assessRisks(
           severity: daysLeft <= 7 ? "critical" : "high",
           status: "open",
           mitigation: "Renew certificate immediately. Consider using Let's Encrypt with auto-renewal (certbot).",
-          framework: ["NIST CSF PR.DS-2", "SOC 2 CC6.7"],
+          framework: ["NIST CSF PR.DS-02", "SOC 2 CC6.7"],
         });
       }
     }
@@ -141,7 +141,7 @@ export function assessRisks(
       severity: "critical",
       status: "open",
       mitigation: "Rotate all exposed credentials immediately. Move secrets to environment variables or a secrets manager. Add patterns to .gitignore.",
-      framework: ["NIST CSF PR.AC-1", "SOC 2 CC6.1", "ISO 27001 A.9.4.3"],
+      framework: ["NIST CSF PR.AA-01", "SOC 2 CC6.1", "ISO 27001 A.5.17"],
     });
   }
 
@@ -157,7 +157,7 @@ export function assessRisks(
       severity: "high",
       status: "open",
       mitigation: "Enable branch protection rules: require PR reviews, status checks, and restrict direct pushes. See access-controls-report.md.",
-      framework: ["NIST CSF PR.AC-4", "SOC 2 CC6.1", "ISO 27001 A.9.4.1"],
+      framework: ["NIST CSF PR.AA-05", "SOC 2 CC6.1", "ISO 27001 A.8.3"],
     });
   }
 
@@ -173,7 +173,7 @@ export function assessRisks(
       severity: "high",
       status: "open",
       mitigation: "Add authentication middleware to all admin, settings, and destructive routes.",
-      framework: ["NIST CSF PR.AC-1", "SOC 2 CC6.1"],
+      framework: ["NIST CSF PR.AA-01", "SOC 2 CC6.1"],
     });
   }
 
@@ -196,7 +196,7 @@ export function assessRisks(
       severity: missingArtifacts.includes("Privacy Policy") ? "high" : "medium",
       status: "open",
       mitigation: "Deploy the auto-generated documents from the .grc/ directory to the live site.",
-      framework: ["NIST CSF ID.GV-1", "SOC 2 CC1.1", "GDPR Art. 13", "CCPA §1798.100"],
+      framework: ["NIST CSF GV.PO-01", "SOC 2 CC1.1", "GDPR Art. 13", "CCPA §1798.100 (as amended by CPRA)"],
     });
   }
 
@@ -230,7 +230,7 @@ export function assessRisks(
       severity: "low",
       status: "open",
       mitigation: "Define retention periods for each data collection point in .grc/config.yml. Implement automated data deletion where appropriate.",
-      framework: ["GDPR Art. 5(1)(e)", "NIST CSF PR.IP-6"],
+      framework: ["GDPR Art. 5(1)(e)", "NIST CSF PR.DS-01"],
     });
   }
 

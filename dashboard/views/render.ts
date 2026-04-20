@@ -1311,7 +1311,7 @@ export function renderInventoryView(rows: InventoryRow[], orgName: string = ""):
       tableHtml += `</tr>`;
     }
     tableHtml += `</table>`;
-    tableHtml += `<p class="note"><strong>Inventory scope.</strong> This view aggregates AI systems across every repo currently scanned by the dashboard. Rows marked with \u2605 have their risk tier set by an explicit override in <code>.grc/config.yml</code>; other rows are heuristic classifications. <strong>Use.</strong> This list is intended as the source document for EU AI Act Article 60 registration of high-risk systems and for auditor evidence packages. Export as CSV via the button above.</p>`;
+    tableHtml += `<p class="note"><strong>Inventory scope.</strong> This view aggregates AI systems across every repo currently scanned by the dashboard. Rows marked with \u2605 have their risk tier set by an explicit override in <code>.grc/config.yml</code>; other rows are heuristic classifications. <strong>Use.</strong> This list is intended as an internal AI systems inventory feeding the EU AI Act Article 49 / Article 26(8) registration flow (EU database established by Article 71) and for auditor evidence packages. Export as CSV via the button above.</p>`;
     tableHtml += `</div>`;
   }
 
