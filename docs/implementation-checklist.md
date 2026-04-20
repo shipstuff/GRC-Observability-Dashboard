@@ -365,18 +365,19 @@ Recommended build order:
 
 **Design principle: no new action runtime.** We don't want to bloat the action's scan time. Integration work happens via (a) exports the user downloads or (b) on-demand dashboard actions. Automatic push-on-scan is deliberately deferred.
 
-### Sub-phase A: Standard export formats — MVP
-- [ ] **SARIF-format output** for security findings (format compatibility only — producing a conformant SARIF file; this does NOT by itself populate GitHub's PR Security tab)
-- [ ] **SARIF upload step** in the action — use `github/codeql-action/upload-sarif@v3` (or POST to `/repos/:owner/:repo/code-scanning/sarifs`) so findings actually appear in GitHub's code scanning UI. Requires `security-events: write` in the consuming workflow's permissions block. Must be documented alongside the existing `contents: write` requirement.
-- [ ] **OSCAL export** (NIST SP 800-53 / Open Security Controls Assessment Language) — JSON/YAML/XML standard that Drata, Hyperproof, and an increasing number of GRC platforms can ingest
-- [ ] **Enhanced JSON export** — structured scan data with all findings, for custom ingestion or scripting
-- [ ] **CSV export** — flat finding list for spreadsheet ingestion (audit workpapers, remediation tracking)
-- [ ] **Export dropdown on each repo card** — choose format, download file
-- [ ] **Org-level export** — aggregated across all scanned repos in one bundle
-- [ ] Exports land in `.grc/exports/` when run via CLI; in-browser download from the dashboard
-- [ ] No credentials required for downloads; SARIF upload uses `GITHUB_TOKEN` only (no vendor keys)
+### Sub-phase A: Standard export formats — MVP — DONE
+- [x] **SARIF-format output** — conformant 2.1.0 with per-secret, per-CVE, per-AI-system results. Vulnerabilities map CVSS severity onto SARIF level (critical → error, moderate → warning, low → note). Fingerprints populated so the Security tab can dedupe across runs.
+- [ ] **SARIF upload step** in the action — deferred. Would require consumers to add `security-events: write` to their workflow permissions block; want to gather signal on whether anyone actually wants the Security-tab integration before adding another required permission.
+- [x] **OSCAL Assessment Results export** — OSCAL v1.1.2 JSON with one result per framework (NIST CSF always; EU AI Act when evaluated). Each evaluated control becomes an observation; non-pass non-NA results also produce findings. Cross-refs preserved as OSCAL props.
+- [x] **Enhanced JSON export** — `GRCExport` envelope: manifest + NIST CSF evaluation + EU AI Act evaluation + full risk register in one blob. Schema-versioned (`schema: grc-export`, `schemaVersion: 1.0`).
+- [x] **CSV export** — four flat tables (NIST CSF controls, EU AI Act articles, risk register, dependency vulnerabilities) with RFC 4180 quoting. Repo/branch/commit/scan_date columns included on every row.
+- [x] **Export dropdown on each repo card** — respects the branch combobox. Per-format filename like `<owner>-<repo>-<branch>-<commit>.sarif` so org-level bundles don't collide.
+- [x] **Org-level export** — main/master only across all repos. JSON + 4 CSVs. SARIF/OSCAL org aggregation deliberately deferred (they need careful merge semantics; no demand yet).
+- [x] **Per-CVE capture in the scanner** — new `DependencyVulnerability[]` field on the manifest carrying advisory id, package, severity, CVSS score, range, fix availability, paths. Stable severity-then-name sort. Required for meaningful SARIF / CSV vuln output.
+- [x] Exports land in `.grc/exports/` when run via CLI; `/export/:owner/:name/:format` and `/export/all/:format` routes on the dashboard for in-browser download.
+- [x] No credentials required for downloads.
 - **GRC concept:** Structured evidence formats; OSCAL as the emerging interchange standard; SARIF as the de-facto security findings format
-- **Known gotcha:** SARIF-on-disk is not the same as findings in the Security tab. Producing the file and uploading it are two separate pieces of work — ship both.
+- **Known gotcha:** SARIF-on-disk is not the same as findings in the Security tab. The export is conformant; the upload step is still open.
 
 ### Sub-phase B: Auditor evidence packaging (was Phase 5 Tier 3)
 - [ ] Generate PDF/ZIP evidence package per framework

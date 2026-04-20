@@ -22,6 +22,10 @@ import { assessRisks, generateRiskAssessment } from "./generators/risk-assessmen
 import { evaluateFramework, generateFrameworkReport } from "./generators/framework-report.js";
 import { evaluateEUAIAct, calcAIComplianceScore } from "./frameworks/eu-ai-act.js";
 import { generateAIComplianceReport } from "./generators/ai-compliance-report.js";
+import { generateJsonExport } from "./generators/exports/json.js";
+import { generateCsvNistCsf, generateCsvEuAiAct, generateCsvRisks, generateCsvVulnerabilities } from "./generators/exports/csv.js";
+import { generateSarifExport } from "./generators/exports/sarif.js";
+import { generateOscalExport } from "./generators/exports/oscal.js";
 import { runAIEnhancements } from "./ai/enhance.js";
 import { generateAIReport } from "./ai/report.js";
 import { execFile } from "node:child_process";
@@ -82,7 +86,7 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
   console.log("   Scanning...");
   const [
     formData,
-    { services, deps },
+    { services, deps, vulnerabilities },
     cookieData,
     endpointData,
     secretsData,
@@ -175,6 +179,7 @@ export async function scan(repoPath: string, siteUrl: string | null): Promise<Sc
     artifacts,
     accessControls,
     aiSystems: classifiedAISystems,
+    vulnerabilities,
     policyUrls,
   };
 
@@ -333,6 +338,34 @@ async function main() {
   const aiComplianceScore = calcAIComplianceScore(aiComplianceResults);
   const aiApplicable = aiComplianceResults.filter(r => r.status !== "not-applicable").length;
   console.log(`📄 EU AI Act report written to ${aiComplianceReportPath} (${aiComplianceScore}% across ${aiApplicable} applicable articles)`);
+
+  // Phase 9 Sub-phase A: machine-readable exports for GRC-platform ingestion.
+  // All exports go to <.grc>/exports/ — regenerated every scan, always
+  // gitignored. The filename encodes branch + short commit so the files
+  // don't collide across branches on a local workstation.
+  const exportsDir = resolve(grcDir, "exports");
+  await mkdir(exportsDir, { recursive: true });
+  const safeBranch = manifest.branch.replace(/[^\w.-]/g, "-");
+  const stem = `${manifest.repo.replace(/\//g, "-")}-${safeBranch}-${manifest.commit.slice(0, 7)}`;
+  const [jsonOut, sarifOut, oscalOut, csvNist, csvAI, csvRisks, csvVulns] = [
+    generateJsonExport(manifest, frameworkResults, aiComplianceResults, risks),
+    generateSarifExport(manifest),
+    generateOscalExport(manifest, frameworkResults, aiComplianceResults),
+    generateCsvNistCsf(manifest, frameworkResults),
+    generateCsvEuAiAct(manifest, aiComplianceResults),
+    generateCsvRisks(manifest, risks),
+    generateCsvVulnerabilities(manifest),
+  ];
+  await Promise.all([
+    writeFile(resolve(exportsDir, `${stem}.json`), jsonOut, "utf-8"),
+    writeFile(resolve(exportsDir, `${stem}.sarif`), sarifOut, "utf-8"),
+    writeFile(resolve(exportsDir, `${stem}.oscal.json`), oscalOut, "utf-8"),
+    writeFile(resolve(exportsDir, `${stem}-nist-csf.csv`), csvNist, "utf-8"),
+    writeFile(resolve(exportsDir, `${stem}-eu-ai-act.csv`), csvAI, "utf-8"),
+    writeFile(resolve(exportsDir, `${stem}-risks.csv`), csvRisks, "utf-8"),
+    writeFile(resolve(exportsDir, `${stem}-vulnerabilities.csv`), csvVulns, "utf-8"),
+  ]);
+  console.log(`📦 Exports written to ${exportsDir}/${stem}.{json,sarif,oscal.json} + 4 CSVs`);
 
   // Run AI enhancements (optional — graceful degradation)
   const aiEnhancements = await runAIEnhancements(config, manifest, risks, frameworkResults);
