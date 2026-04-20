@@ -42,7 +42,13 @@ function timeAgo(dateStr: string): string {
   return `${days}D AGO`;
 }
 
-function layout(title: string, content: string, orgName: string = "", activeNav: "dashboard" | "inventory" = "dashboard"): string {
+function layout(
+  title: string,
+  content: string,
+  orgName: string = "",
+  activeNav: "dashboard" | "inventory" = "dashboard",
+  opts: { fullBleed?: boolean } = {},
+): string {
   const subtitle = orgName ? `${orgName.toUpperCase()} // ` : "";
   const navCls = (n: string) => n === activeNav ? "active" : "";
   return `<!DOCTYPE html>
@@ -111,6 +117,214 @@ function layout(title: string, content: string, orgName: string = "", activeNav:
     .header .header-nav a { color: #666; text-decoration: none; }
     .header .header-nav a.active { color: #39ff14; text-shadow: 0 0 6px #39ff14; }
     .header .header-nav a:hover { color: #ff00ff; text-shadow: 0 0 6px #ff00ff; }
+
+    /* ========= V2 DASHBOARD SHELL =========
+       Two-pane layout: sidebar repo list (left) + detail pane (right).
+       Derived from the v2 design mock. Coexists with the v1 styles above;
+       views that still use v1 classes (NIST tab, Branches, Trends, etc.)
+       keep working unchanged. */
+    .v2-shell {
+      background: #0a0a0a; color: #c8c8c8;
+      font-family: var(--font-mono); font-size: 13px;
+      min-height: calc(100vh - 120px); display: grid;
+      grid-template-rows: auto 1fr; position: relative;
+    }
+    .v2-topbar {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 20px; border-bottom: 1px solid #1a1a1a;
+      flex-wrap: wrap;
+    }
+    .v2-brand {
+      font-family: var(--font-pixel); font-size: 12px;
+      color: #39ff14; letter-spacing: 2px;
+    }
+    .v2-org { font-family: var(--font-pixel); font-size: 7px; color: #555; letter-spacing: 2px; }
+    .v2-stats-spacer { flex: 1; }
+    .v2-stats { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+    .v2-stat {
+      display: inline-flex; align-items: baseline; gap: 6px;
+    }
+    .v2-stat .v2-stat-label {
+      font-family: var(--font-pixel); font-size: 7px;
+      color: #555; letter-spacing: 1.5px;
+    }
+    .v2-stat .v2-stat-val {
+      font-family: var(--font-pixel); font-size: 11px;
+    }
+
+    .v2-panes {
+      display: grid; grid-template-columns: 340px 1fr;
+      min-height: 0;
+    }
+    .v2-sidebar {
+      border-right: 1px solid #1a1a1a;
+      display: flex; flex-direction: column; min-width: 0;
+    }
+    .v2-sidebar-filter {
+      padding: 10px 14px; border-bottom: 1px solid #1a1a1a;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .v2-sidebar-filter input {
+      flex: 1; background: none; border: none; outline: none;
+      color: #c8c8c8; font-family: var(--font-mono); font-size: 12px;
+    }
+    .v2-sidebar-filter input::placeholder { color: #555; }
+    .v2-repo-row {
+      padding: 10px 14px; cursor: pointer;
+      border-left: 2px solid transparent;
+      display: flex; flex-direction: column; gap: 4px;
+      text-decoration: none; color: inherit;
+    }
+    .v2-repo-row:hover { background: #0f140d; }
+    .v2-repo-row.active { border-left-color: #39ff14; background: #0f140d; }
+    .v2-repo-row .v2-repo-head { display: flex; align-items: baseline; gap: 8px; }
+    .v2-repo-row .v2-repo-name {
+      font-family: var(--font-pixel); font-size: 9px;
+      color: #c8c8c8; letter-spacing: 0.5px;
+    }
+    .v2-repo-row.active .v2-repo-name { color: #39ff14; }
+    .v2-repo-row .v2-repo-alert {
+      font-family: var(--font-pixel); font-size: 6px;
+      color: #ff0040; letter-spacing: 1px;
+    }
+    .v2-repo-row .v2-repo-ai {
+      font-family: var(--font-pixel); font-size: 6px;
+      color: #00ffff; letter-spacing: 1px;
+    }
+    .v2-repo-row .v2-repo-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 10px; color: #555;
+    }
+    .v2-hp-compact {
+      font-family: var(--font-mono); font-size: 11px;
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+
+    .v2-detail { overflow: auto; min-height: 0; min-width: 0; }
+    .v2-detail-head {
+      padding: 18px 24px; border-bottom: 1px solid #1a1a1a;
+    }
+    .v2-detail-head-row {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .v2-detail-title {
+      font-family: var(--font-pixel); font-size: 14px;
+      color: #39ff14; text-shadow: 0 0 8px #39ff14;
+      letter-spacing: 1px; word-break: break-word;
+    }
+    .v2-detail-meta { font-size: 11px; color: #666; }
+
+    .v2-scores { display: flex; gap: 32px; align-items: flex-end; flex-wrap: wrap; }
+    .v2-big-score {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .v2-big-score .v2-big-score-label {
+      font-family: var(--font-pixel); font-size: 7px;
+      color: #666; letter-spacing: 2px;
+    }
+    .v2-big-score .v2-big-score-val {
+      font-family: var(--font-pixel); font-size: 26px;
+      line-height: 1;
+    }
+
+    .v2-tabs {
+      display: flex; gap: 0; padding: 0 24px;
+      border-bottom: 1px solid #1a1a1a; flex-wrap: wrap;
+    }
+    .v2-tab {
+      background: none; border: none; padding: 12px 14px;
+      cursor: pointer; font-family: var(--font-pixel);
+      font-size: 8px; letter-spacing: 1.5px; color: #555;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      white-space: nowrap; text-decoration: none; display: inline-block;
+    }
+    .v2-tab.active { color: #39ff14; border-bottom-color: #39ff14; }
+    .v2-tab:hover:not(.active) { color: #aaa; }
+
+    .v2-panel-body { padding: 18px 24px; }
+    .v2-panel-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .v2-panel-span-3 { grid-column: span 3; }
+    .v2-panel-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px; border-bottom: 1px solid #1a1a1a; padding-bottom: 6px;
+    }
+    .v2-panel-title {
+      font-family: var(--font-pixel); font-size: 8px;
+      color: #00ffff; letter-spacing: 2px;
+    }
+    .v2-panel-title .v2-panel-count { color: #555; margin-left: 6px; }
+    .v2-panel-expand {
+      background: none; border: 1px solid #222; color: #888;
+      padding: 3px 8px; cursor: pointer;
+      font-family: var(--font-pixel); font-size: 6px; letter-spacing: 1.5px;
+      text-decoration: none;
+    }
+    .v2-panel-expand:hover { color: #39ff14; border-color: #39ff14; }
+    .v2-kv-row {
+      display: flex; justify-content: space-between;
+      padding: 6px 0; border-bottom: 1px solid #141414; font-size: 12px;
+    }
+    .v2-kv-row .v2-kv-k { color: #888; }
+    .v2-kv-row .v2-kv-v {
+      font-variant-numeric: tabular-nums; text-transform: uppercase;
+    }
+    .v2-kv-row .v2-kv-v.pass, .v2-kv-row .v2-kv-v.present { color: #39ff14; }
+    .v2-kv-row .v2-kv-v.partial { color: #ffff00; }
+    .v2-kv-row .v2-kv-v.fail, .v2-kv-row .v2-kv-v.missing { color: #ff0040; }
+    .v2-kv-row .v2-kv-v.na { color: #555; text-transform: none; }
+    .v2-kv-row .v2-kv-v.default { color: #c8c8c8; }
+
+    .v2-artifacts-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 22px; }
+
+    .v2-empty-note {
+      font-size: 11px; color: #555; padding: 6px 0;
+    }
+    .v2-empty-state {
+      padding: 40px 24px; text-align: center;
+    }
+    .v2-empty-state p { color: #666; }
+
+    .v2-back-btn {
+      display: none;
+      background: none; border: 1px solid #333; color: #aaa;
+      padding: 6px 10px; cursor: pointer;
+      font-family: var(--font-pixel); font-size: 7px; letter-spacing: 1.5px;
+      margin-bottom: 10px; text-decoration: none;
+    }
+
+    /* Tablet: narrower sidebar, 2-column panel grid */
+    @media (max-width: 960px) {
+      .v2-panes { grid-template-columns: 240px 1fr; }
+      .v2-panel-grid { grid-template-columns: repeat(2, 1fr); gap: 18px; }
+      .v2-panel-span-3 { grid-column: span 2; }
+      .v2-artifacts-grid { grid-template-columns: 1fr 1fr; }
+      .v2-detail-head { padding: 14px 16px; }
+      .v2-tabs { padding: 0 16px; }
+      .v2-panel-body { padding: 14px 16px; }
+      .v2-detail-title { font-size: 12px; }
+    }
+
+    /* Mobile: single-pane. Sidebar is the homepage; picking a repo navigates
+       to /repo/owner/name which renders the detail-only view. */
+    @media (max-width: 700px) {
+      .v2-panes { grid-template-columns: 1fr; }
+      .v2-sidebar { border-right: none; }
+      .v2-shell[data-mobile-view="detail"] .v2-sidebar { display: none; }
+      .v2-shell[data-mobile-view="list"] .v2-detail { display: none; }
+      .v2-back-btn { display: inline-flex; align-items: center; gap: 6px; }
+      .v2-panel-grid { grid-template-columns: 1fr; gap: 20px; }
+      .v2-panel-span-3 { grid-column: span 1; }
+      .v2-artifacts-grid { grid-template-columns: 1fr; gap: 0; }
+      .v2-detail-title { font-size: 11px; }
+      .v2-scores { gap: 18px; }
+      .v2-topbar { padding: 10px 14px; gap: 10px; }
+      .v2-stats { gap: 14px; order: 3; width: 100%; padding-top: 6px; border-top: 1px solid #1a1a1a; }
+      .v2-stats-spacer { display: none; }
+    }
     @keyframes flicker { 0%,95%,100%{opacity:1} 96%{opacity:0.8} 97%{opacity:1} 98%{opacity:0.9} }
     @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
     @keyframes slideIn { from{transform:translateY(-10px);opacity:0} to{transform:translateY(0);opacity:1} }
@@ -399,6 +613,7 @@ function layout(title: string, content: string, orgName: string = "", activeNav:
   </style>
 </head>
 <body>
+  ${opts.fullBleed ? content : `
   <div class="header">
     <h1>GRC OBSERVABILITY</h1>
     <div class="subtitle">${subtitle}GOVERNANCE RISK COMPLIANCE DASHBOARD</div>
@@ -410,7 +625,7 @@ function layout(title: string, content: string, orgName: string = "", activeNav:
   <div class="container">
     ${content}
     <div class="insert-coin">SYSTEM ACTIVE <span class="cursor-blink"></span></div>
-  </div>
+  </div>`}
   <script>
     function toggleRepo(id) {
       var el = document.getElementById(id);
@@ -664,7 +879,38 @@ function layout(title: string, content: string, orgName: string = "", activeNav:
 </html>`;
 }
 
-export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<string, string[]>, orgName: string = ""): string {
+/**
+ * Render a single repo row in the left sidebar. Kept as a helper so the
+ * new two-pane dashboard and any future "inventory by repo" view can
+ * reuse the exact same row shape.
+ */
+function v2RepoRow(r: RepoSummary, active: boolean): string {
+  const bad = r.criticalVulns + r.highVulns > 0 || r.secretsDetected;
+  const aiCount = r.aiSystemCount ?? 0;
+  const shortName = r.repo.split("/")[1] ?? r.repo;
+  return `
+    <a class="v2-repo-row${active ? " active" : ""}" href="/?repo=${encodeURIComponent(r.repo)}" data-repo="${esc(r.repo)}">
+      <div class="v2-repo-head">
+        <span class="v2-repo-name">${esc(shortName)}</span>
+        ${bad ? '<span class="v2-repo-alert">ALERT</span>' : ""}
+        ${aiCount > 0 ? `<span class="v2-repo-ai">AI·${aiCount}</span>` : ""}
+      </div>
+      <div class="v2-repo-meta">
+        <span>${esc(r.branch)} · ${timeAgo(r.scanDate)}</span>
+        <span class="v2-hp-compact">
+          <span style="color:${scoreColor(r.complianceScore)}">${"\u2588".repeat(Math.round(r.complianceScore / 100 * 8))}</span><span style="color:#2a2a2a">${"\u2591".repeat(8 - Math.round(r.complianceScore / 100 * 8))}</span>
+          <span style="color:${scoreColor(r.complianceScore)}">${r.complianceScore}%</span>
+        </span>
+      </div>
+    </a>`;
+}
+
+export function renderDashboard(
+  summaries: RepoSummary[],
+  branchesPerRepo: Map<string, string[]>,
+  orgName: string = "",
+  opts: { selectedRepo?: string; repoDetailHtml?: string } = {},
+): string {
   if (summaries.length === 0) {
     return layout("GRC OBSERVABILITY", `
       <div class="empty">
@@ -673,145 +919,88 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
       </div>`, orgName);
   }
 
+  // --- org-level stats for the top bar ---
   const totalRepos = summaries.length;
   const avgScore = Math.round(summaries.reduce((s, r) => s + r.complianceScore, 0) / totalRepos);
   const avgNist = Math.round(summaries.reduce((s, r) => s + r.nistScore, 0) / totalRepos);
   const totalVulns = summaries.reduce((s, r) => s + r.criticalVulns + r.highVulns, 0);
   const secretsCount = summaries.filter(r => r.secretsDetected).length;
-
-  // AI aggregation: average AI compliance score and total detected AI systems
-  // across repos. Older manifests may lack the AI fields, so we treat them as
-  // zero-AI rather than short-circuiting on undefined.
   const totalAISystems = summaries.reduce((s, r) => s + (r.aiSystemCount ?? 0), 0);
-  const aiRepos = summaries.filter(r => (r.aiSystemCount ?? 0) > 0);
-  const avgAIScore = aiRepos.length > 0
-    ? Math.round(aiRepos.reduce((s, r) => s + (r.aiScore ?? 0), 0) / aiRepos.length)
-    : null;
-  const aiScoreDisplay = avgAIScore === null
-    ? `<span style="color:#555">\u2014</span>`
-    : `<span style="color:${scoreColor(avgAIScore)}">${avgAIScore}%</span>`;
 
-  const statsHtml = `
-    <div class="stats-row">
-      <div class="stat-card"><div class="label">Targets</div><div class="value" style="color:#00ffff">${totalRepos}</div></div>
-      <div class="stat-card"><div class="label">Compliance</div><div class="value" style="color:${scoreColor(avgScore)}">${avgScore}%</div></div>
-      <div class="stat-card"><div class="label">NIST CSF</div><div class="value" style="color:${scoreColor(avgNist)}">${avgNist}%</div></div>
-      <div class="stat-card"><div class="label">EU AI Act</div><div class="value">${aiScoreDisplay}</div><div class="label" style="margin-top:4px;">${totalAISystems} SYS${aiRepos.length > 0 ? ` // ${aiRepos.length} REPO${aiRepos.length === 1 ? "" : "S"}` : ""}</div></div>
-      <div class="stat-card"><div class="label">Threats</div><div class="value" style="color:${totalVulns > 0 ? "#ff0040" : "#39ff14"}">${totalVulns}</div></div>
-      <div class="stat-card"><div class="label">Leaks</div><div class="value" style="color:${secretsCount > 0 ? "#ff0040" : "#39ff14"}">${secretsCount}</div></div>
-    </div>`;
+  // --- selection + sidebar ---
+  // The selected repo drives the right pane. Default to the first repo sorted
+  // by scanDate desc (the homepage sort) so users land on fresh data.
+  const selected = opts.selectedRepo
+    ? summaries.find(r => r.repo === opts.selectedRepo) ?? summaries[0]!
+    : summaries[0]!;
 
-  // Org-level audit-bundle export — main/master only across all repos.
-  // Deliberately separate from the per-repo dropdown (which respects the
-  // branch dropdown) because auditors want production state, not WIP.
-  const orgExportHtml = `
-    <div class="export-combo org-export-combo" onclick="event.stopPropagation();">
-      <button class="export-btn" onclick="toggleOrgExportMenu()">ORG EXPORT (MAIN) \u25BE</button>
-      <ul id="export-menu-org" class="export-menu">
-        <li class="export-header">MACHINE-READABLE</li>
-        <li onclick="downloadOrgExport(event,'manifest.json')">JSON (all repos)</li>
-        <li class="export-header">CSV</li>
-        <li onclick="downloadOrgExport(event,'nist-csf.csv')">NIST CSF (all repos)</li>
-        <li onclick="downloadOrgExport(event,'eu-ai-act.csv')">EU AI Act (all repos)</li>
-        <li onclick="downloadOrgExport(event,'risks.csv')">Risk register (all repos)</li>
-        <li onclick="downloadOrgExport(event,'vulnerabilities.csv')">Vulnerabilities (all repos)</li>
-      </ul>
-    </div>`;
+  const sidebarRows = summaries.map(r => v2RepoRow(r, r.repo === selected.repo)).join("\n");
 
-  const searchHtml = `<div class="search-bar"><input type="text" id="repo-search" placeholder="> SEARCH REPOS..." oninput="filterRepos()"></div>${orgExportHtml}`;
+  const orgHeader = orgName ? `${orgName.toUpperCase()} · ${totalRepos} REPOS` : `${totalRepos} REPOS`;
 
-  const reposHtml = summaries.map(r => {
-    const [owner, name] = r.repo.split("/");
-    const safeId = (owner + "-" + name).replace(/\./g, "-");
-    const branches = branchesPerRepo.get(r.repo) || [r.branch];
+  const stat = (label: string, v: string, color: string) =>
+    `<span class="v2-stat"><span class="v2-stat-label">${label}</span><span class="v2-stat-val" style="color:${color}">${v}</span></span>`;
 
-    // Sort branches: main/master first
-    const sortedBranches = [...branches].sort((a, b) => {
-      if (a === "main" || a === "master") return -1;
-      if (b === "main" || b === "master") return 1;
-      return a.localeCompare(b);
-    });
-
-    // Branch names never get embedded into the inline JS string — the handler
-    // reads `this.dataset.value` so names containing characters like `'` or
-    // `"` can't break out of the attribute context or inject script. `esc()`
-    // only sanitizes for HTML attribute values (double-quoted), which is all
-    // `data-value` needs.
-    const branchItems = sortedBranches.map(b => {
-      const isMain = b === "main" || b === "master";
-      return `<li data-value="${esc(b)}" onmousedown="selectBranch('${safeId}','${owner}','${name}',this.dataset.value)">${esc(b)}${isMain ? '<span class="main-pin">PINNED</span>' : ''}</li>`;
-    }).join("");
-    const branchItemsWithEmpty = branchItems + `<li class="no-results" style="display:none;">no matches</li>`;
-
-    const hasSiteUrl = !!r.siteUrl;
-
-    return `
-    <div class="repo-entry" data-repo="${esc(r.repo)}">
-      <div class="repo-card" onclick="toggleRepo('detail-${safeId}')">
-        <div class="repo-header">
-          <div>
-            <div class="repo-name">&gt; ${esc(r.repo)}</div>
-            <div class="repo-meta">${esc(r.branch)} // ${r.commit} // ${timeAgo(r.scanDate)}</div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
-            ${hpBar(r.complianceScore, 12, "HP")}
-            ${hpBar(r.nistScore, 12, "NIST")}
-          </div>
-        </div>
-        <div class="checks-grid">
-          <div class="check">${r.secretsDetected ? '<span class="icon fail">[XX]</span>' : '<span class="icon pass">[OK]</span>'} SECRETS</div>
-          <div class="check">${r.headersPresent === r.headersTotal && r.headersTotal > 0 ? '<span class="icon pass">[OK]</span>' : r.headersPresent > 0 ? '<span class="icon warn">[!!]</span>' : '<span class="icon fail">[XX]</span>'} HDR ${r.headersPresent}/${r.headersTotal}</div>
-          <div class="check">${r.httpsEnforced === true ? '<span class="icon pass">[OK]</span>' : r.httpsEnforced === false ? '<span class="icon fail">[XX]</span>' : '<span style="color:#555">[-]</span>'} HTTPS</div>
-          <div class="check">${r.criticalVulns + r.highVulns === 0 ? '<span class="icon pass">[OK]</span>' : '<span class="icon fail">[XX]</span>'} DEPS ${r.criticalVulns}C/${r.highVulns}H</div>
-          <div class="check">${statusIcon(r.artifacts.privacyPolicy)} PRIV</div>
-          <div class="check">${statusIcon(r.artifacts.securityTxt)} SEC</div>
-          <div class="check">${statusIcon(r.artifacts.incidentResponsePlan)} IRP</div>
-          <div class="check">${statusIcon(r.artifacts.vulnerabilityDisclosure)} DISC</div>
-        </div>
+  const topbarHtml = `
+    <div class="v2-topbar">
+      <div class="v2-brand">GRC OBSERVABILITY</div>
+      <div class="v2-org">${esc(orgHeader)}</div>
+      <div class="v2-stats-spacer"></div>
+      <div class="v2-stats">
+        ${stat("CMPL", avgScore + "%", scoreColor(avgScore))}
+        ${stat("NIST", avgNist + "%", scoreColor(avgNist))}
+        ${stat("AI SYS", String(totalAISystems), "#00ffff")}
+        ${stat("THREATS", String(totalVulns), totalVulns ? "#ff0040" : "#39ff14")}
+        ${stat("LEAKS", String(secretsCount), secretsCount ? "#ff0040" : "#39ff14")}
       </div>
-      <div id="detail-${safeId}" style="display:none;">
-        <div class="controls-bar">
-          <div class="branch-combo" id="branch-${safeId}" data-value="${esc(r.branch)}" onclick="event.stopPropagation();">
-            <input type="text" id="branch-input-${safeId}" value="${esc(r.branch)}" autocomplete="off" spellcheck="false" placeholder="filter branches..."
-              onfocus="openCombo('${safeId}')"
-              oninput="filterCombo('${safeId}')"
-              onblur="closeComboSoon('${safeId}')"
-              onkeydown="comboKey(event,'${safeId}','${owner}','${name}')">
-            <span class="combo-caret">\u25BE</span>
-            <ul>
-              ${branchItemsWithEmpty}
-            </ul>
-          </div>
-          ${hasSiteUrl ? `<button class="check-prod-btn" onclick="event.stopPropagation();checkProduction('${owner}','${name}',this)">CHECK PRODUCTION</button><span class="check-prod-result"></span>` : ""}
-          <div class="export-combo" onclick="event.stopPropagation();">
-            <button class="export-btn" onclick="toggleExportMenu('${safeId}')">EXPORT \u25BE</button>
-            <ul id="export-menu-${safeId}" class="export-menu">
-              <li class="export-header">MACHINE-READABLE</li>
-              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','manifest.json')">JSON (full state)</li>
-              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','findings.sarif')">SARIF (code scanning)</li>
-              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','assessment.oscal.json')">OSCAL (assessment results)</li>
-              <li class="export-header">CSV</li>
-              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','nist-csf.csv')">NIST CSF controls</li>
-              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','eu-ai-act.csv')">EU AI Act articles</li>
-              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','risks.csv')">Risk register</li>
-              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','vulnerabilities.csv')">Vulnerabilities</li>
-            </ul>
-          </div>
-        </div>
-        <div class="tab-bar">
-          <div class="tab active" data-url="/repo/${owner}/${name}" onclick="switchTab('${safeId}','${owner}','${name}','repo',this)">OVERVIEW</div>
-          <div class="tab" data-url="/nist/${owner}/${name}" onclick="switchTab('${safeId}','${owner}','${name}','nist',this)">NIST CSF</div>
-          <div class="tab" data-url="/branches/${owner}/${name}" onclick="switchTab('${safeId}','${owner}','${name}','branches',this)">BRANCHES</div>
-          <div class="tab" data-url="/trends/${owner}/${name}" onclick="switchTab('${safeId}','${owner}','${name}','trends',this)">TRENDS</div>
-          <div class="tab" data-url="/ai/${owner}/${name}" onclick="switchTab('${safeId}','${owner}','${name}','ai',this)">AI</div>
-        </div>
-        <div id="panel-${safeId}" hx-get="/repo/${owner}/${name}" hx-trigger="load"></div>
-      </div>
+      <a class="v2-tab" href="/inventory" style="padding:6px 10px;">AI INVENTORY \u2192</a>
     </div>`;
-  }).join("\n");
 
-  return layout("GRC OBSERVABILITY", statsHtml + searchHtml + `<div class="section"><div class="section-title">Scanned Repos</div>${reposHtml}</div>`, orgName);
+  const sidebarHtml = `
+    <aside class="v2-sidebar">
+      <div class="v2-sidebar-filter">
+        <span style="color:#39ff14">&gt;</span>
+        <input id="repo-search" placeholder="filter..." oninput="v2FilterRepos()">
+      </div>
+      <div id="v2-repo-list">${sidebarRows}</div>
+    </aside>`;
+
+  // Right pane: either the server-rendered detail for the selected repo,
+  // or fall back to a placeholder if we weren't given one. Production always
+  // passes one.
+  const detailHtml = opts.repoDetailHtml
+    ? opts.repoDetailHtml
+    : `<div class="v2-empty-state"><p>Select a repo from the left to view compliance detail.</p></div>`;
+
+  const shellHtml = `
+    <div class="v2-shell">
+      ${topbarHtml}
+      <div class="v2-panes" id="v2-panes">
+        ${sidebarHtml}
+        <main class="v2-detail" id="v2-detail">${detailHtml}</main>
+      </div>
+    </div>
+    <script>
+      // Client-side filter over the sidebar repo list. Server returns every
+      // repo's row; we just hide non-matches locally to keep the UI snappy.
+      function v2FilterRepos() {
+        var q = (document.getElementById('repo-search').value || '').toLowerCase();
+        document.querySelectorAll('#v2-repo-list .v2-repo-row').forEach(function(el) {
+          var repo = (el.getAttribute('data-repo') || '').toLowerCase();
+          el.style.display = repo.includes(q) ? '' : 'none';
+        });
+      }
+    </script>`;
+
+  // v2 is full-bleed — it has its own topbar, so we skip layout()'s v1
+  // header + the 1100px .container wrapper. Without that, the two-pane
+  // grid gets clamped to ~1068px and the media query at <=960px fires
+  // on typical desktop widths.
+  return layout("GRC OBSERVABILITY", shellHtml, orgName, "dashboard", { fullBleed: true });
 }
+
+// V1 expanded-repo-card rendering removed — superseded by v2 two-pane shell.
+// Prior layout available in git history before feat/dashboard-v2.
 
 type PolicyServedState = "served" | "unreachable" | "not-configured";
 type PolicyServedMap = Partial<Record<
@@ -824,119 +1013,253 @@ export interface ServedState {
   policyServedCheckedAt?: string;
 }
 
-function servedBadge(state: PolicyServedState | undefined): string {
-  if (state === "served") return `<span class="icon pass">[OK]</span> SERVED`;
-  if (state === "unreachable") return `<span class="icon fail">[XX]</span> UNREACHABLE`;
-  if (state === "not-configured") return `<span class="icon na">[--]</span> NOT CONFIGURED`;
-  return `<span style="color:#444">\u2014</span>`;
+/** KV row inside one of the v2 overview panels. */
+function v2Kv(k: string, v: string, status?: string): string {
+  const cls = status ? ` ${status}` : " default";
+  return `<div class="v2-kv-row"><span class="v2-kv-k">${esc(k)}</span><span class="v2-kv-v${cls}">${v}</span></div>`;
 }
 
-export function renderRepoDetail(manifest: Manifest, summary: RepoSummary, served: ServedState = {}): string {
-  const dc = manifest.dataCollection;
-  const tp = manifest.thirdPartyServices;
+function v2Panel(title: string, body: string, opts: { count?: number; span3?: boolean } = {}): string {
+  const countHtml = opts.count !== undefined ? `<span class="v2-panel-count">· ${opts.count}</span>` : "";
+  return `
+    <section class="${opts.span3 ? "v2-panel-span-3" : ""}">
+      <div class="v2-panel-head">
+        <div class="v2-panel-title">${title}${countHtml}</div>
+      </div>
+      <div>${body}</div>
+    </section>`;
+}
+
+function v2BigScore(label: string, pct: number | null): string {
+  if (pct === null) {
+    return `
+      <div class="v2-big-score">
+        <div class="v2-big-score-label">${label}</div>
+        <div class="v2-big-score-val" style="color:#555">—</div>
+      </div>`;
+  }
+  const color = scoreColor(pct);
+  return `
+    <div class="v2-big-score">
+      <div class="v2-big-score-label">${label}</div>
+      <div class="v2-big-score-val" style="color:${color};text-shadow:0 0 10px ${color}">${pct}%</div>
+      <div style="margin-top:4px;">${hpBar(pct, 14, "")}</div>
+    </div>`;
+}
+
+export type RepoDetailTab = "overview" | "nist" | "ai" | "branches" | "trends";
+
+/**
+ * Render the right pane of the v2 two-pane shell. `tab` selects which body
+ * to show under the detail head — overview keeps the 3-col panel grid,
+ * the others embed the existing NIST / AI / branches / trends views so
+ * navigation is a single full-page load rather than HTMX.
+ */
+export function renderRepoDetail(
+  manifest: Manifest,
+  summary: RepoSummary,
+  served: ServedState = {},
+  opts: {
+    tab?: RepoDetailTab;
+    functionScores?: FunctionScore[];
+    branchSummaries?: RepoSummary[];
+    history?: HistoryEntry[];
+  } = {},
+): string {
+  const [owner, name] = manifest.repo.split("/") as [string, string];
+  const safeId = (owner + "-" + name).replace(/\./g, "-");
   const h = manifest.securityHeaders;
   const ac = manifest.accessControls;
+  const dc = manifest.dataCollection;
+  const tp = manifest.thirdPartyServices;
+  const ai = manifest.aiSystems || [];
+  const aiCount = ai.length;
+  const aiScore = summary.aiScore;
+  const hasSiteUrl = !!summary.siteUrl;
 
-  let html = `<div class="detail">`;
-  html += `<div style="font-size:7px;color:#666;margin-bottom:12px;">${esc(manifest.branch)} // ${esc(manifest.commit)} // ${timeAgo(manifest.scanDate)}</div>`;
+  // --- panels ---
 
-  html += `<h3>DATA COLLECTION // ${dc.length} POINTS</h3>`;
-  if (dc.length > 0) {
-    html += `<table><colgroup><col style="width:15%"><col style="width:15%"><col style="width:40%"><col style="width:30%"></colgroup>`;
-    html += `<tr><th>TYPE</th><th>SOURCE</th><th>LOCATION</th><th>FIELDS</th></tr>`;
-    for (const d of dc) html += `<tr><td>${esc(d.type)}</td><td>${esc(d.source)}</td><td><code>${esc(d.location)}</code></td><td>${esc(d.fields.join(", "))}</td></tr>`;
-    html += `</table>`;
-  }
+  const dataBody = dc.length === 0
+    ? `<div class="v2-empty-note">No data collection detected.</div>`
+    : [
+        v2Kv("Forms", String(dc.filter(d => d.source === "form" || d.source === "web-form").length)),
+        v2Kv("API endpoints", String(dc.filter(d => d.source.startsWith("POST") || d.source === "api-input").length)),
+        v2Kv("Cookies", String(dc.filter(d => d.type === "cookie").length)),
+        v2Kv("Trackers", String(dc.filter(d => d.type === "tracking").length)),
+      ].join("");
 
-  if (tp.length > 0) {
-    html += `<h3>THIRD-PARTY SERVICES</h3>`;
-    html += `<table><colgroup><col style="width:20%"><col style="width:25%"><col style="width:35%"><col style="width:20%"></colgroup>`;
-    html += `<tr><th>SERVICE</th><th>PURPOSE</th><th>DATA SHARED</th><th>DPA</th></tr>`;
-    for (const s of tp) html += `<tr><td>${esc(s.name)}</td><td>${esc(s.purpose)}</td><td>${esc(s.dataShared.join(", "))}</td><td>${s.dpaUrl ? `<a href="${esc(s.dpaUrl)}" target="_blank">[LINK]</a>` : '<span style="color:#555">NONE</span>'}</td></tr>`;
-    html += `</table>`;
-  }
+  const transportBody = !h && !manifest.https
+    ? `<div class="v2-empty-note">No live site URL configured.</div>`
+    : [
+        manifest.https
+          ? v2Kv("HTTPS", manifest.https.enforced ? "enforced" : "NOT ENFORCED", manifest.https.enforced ? "pass" : "fail")
+          : v2Kv("HTTPS", "not checked", "na"),
+        manifest.https?.certExpiry
+          ? v2Kv("Cert expiry", manifest.https.certExpiry)
+          : "",
+        h
+          ? v2Kv("Headers", `${summary.headersPresent}/${summary.headersTotal}`, summary.headersPresent === summary.headersTotal ? "pass" : summary.headersPresent >= 3 ? "partial" : "fail")
+          : v2Kv("Headers", "not checked", "na"),
+      ].join("");
 
-  if (h) {
-    html += `<h3>SECURITY HEADERS // ${summary.headersPresent}/${summary.headersTotal}</h3>`;
-    html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup><tr><th>HEADER</th><th>STATUS</th></tr>`;
-    const names: Record<string, string> = { csp:"Content-Security-Policy", hsts:"Strict-Transport-Security", xFrameOptions:"X-Frame-Options", xContentTypeOptions:"X-Content-Type-Options", referrerPolicy:"Referrer-Policy", permissionsPolicy:"Permissions-Policy" };
-    for (const [key, label] of Object.entries(names)) { const val = (h as any)[key] as string; html += `<tr><td>${label}</td><td>${statusIcon(val)} ${val.toUpperCase()}</td></tr>`; }
-    html += `</table>`;
-  }
+  const depsBody = !manifest.dependencies
+    ? `<div class="v2-empty-note">No dependency scan performed.</div>`
+    : [
+        v2Kv("Critical", String(manifest.dependencies.criticalVulnerabilities), manifest.dependencies.criticalVulnerabilities > 0 ? "fail" : "pass"),
+        v2Kv("High", String(manifest.dependencies.highVulnerabilities), manifest.dependencies.highVulnerabilities > 0 ? "fail" : "pass"),
+        v2Kv("Medium", String(manifest.dependencies.mediumVulnerabilities)),
+        v2Kv("Last audit", manifest.dependencies.lastAudit),
+      ].join("");
 
-  if (manifest.https) {
-    html += `<h3>HTTPS // TLS</h3>`;
-    html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup><tr><th>CHECK</th><th>STATUS</th></tr>`;
-    html += `<tr><td>HTTPS Enforced</td><td>${manifest.https.enforced ? '<span class="icon pass">[OK]</span> YES' : '<span class="icon fail">[XX]</span> NO'}</td></tr>`;
-    html += `<tr><td>Cert Expiry</td><td>${manifest.https.certExpiry ?? '<span style="color:#555">UNKNOWN</span>'}</td></tr>`;
-    html += `</table>`;
-  }
+  const accessBody = [
+    v2Kv("Branch protection",
+      ac.branchProtection === true ? "enabled" : ac.branchProtection === false ? "DISABLED" : "UNKNOWN",
+      ac.branchProtection === true ? "pass" : ac.branchProtection === false ? "fail" : "na"),
+    v2Kv("Required reviews", String(ac.requiredReviews ?? "\u2014")),
+    v2Kv("Signed commits",
+      ac.signedCommits === true ? "yes" : ac.signedCommits === false ? "no" : "\u2014",
+      ac.signedCommits === true ? "pass" : ac.signedCommits === false ? "fail" : "na"),
+  ].join("");
 
-  if (manifest.dependencies) {
-    const d = manifest.dependencies;
-    html += `<h3>DEPENDENCIES</h3>`;
-    html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup><tr><th>SEVERITY</th><th>COUNT</th></tr>`;
-    html += `<tr><td>CRITICAL</td><td style="color:${d.criticalVulnerabilities > 0 ? "#ff0040" : "#39ff14"};text-shadow:0 0 6px currentColor">${d.criticalVulnerabilities}</td></tr>`;
-    html += `<tr><td>HIGH</td><td style="color:${d.highVulnerabilities > 0 ? "#ff0040" : "#39ff14"};text-shadow:0 0 6px currentColor">${d.highVulnerabilities}</td></tr>`;
-    html += `<tr><td>MEDIUM</td><td style="color:#ffff00">${d.mediumVulnerabilities}</td></tr>`;
-    html += `<tr><td>LAST AUDIT</td><td>${d.lastAudit}</td></tr>`;
-    html += `</table>`;
-  }
+  const aiBody = aiCount === 0
+    ? `<div class="v2-empty-note">No AI SDKs, training libs, or inference endpoints detected in this repo.</div>`
+    : ai.slice(0, 4).map(s => {
+        const tier = s.riskTier ?? "unknown";
+        const status = tier === "high" || tier === "prohibited" ? "fail" : tier === "limited" ? "partial" : "pass";
+        return v2Kv(`${s.provider} · ${s.sdk}`, tier.toUpperCase(), status);
+      }).join("") + (aiCount > 4 ? `<div class="v2-empty-note">+${aiCount - 4} more — see AI tab</div>` : "");
 
-  html += `<h3>ACCESS CONTROLS</h3>`;
-  html += `<table><colgroup><col style="width:60%"><col style="width:40%"></colgroup><tr><th>CONTROL</th><th>STATUS</th></tr>`;
-  html += `<tr><td>Branch Protection</td><td>${ac.branchProtection === true ? '<span class="icon pass">[OK]</span> ENABLED' : ac.branchProtection === false ? '<span class="icon fail">[XX]</span> DISABLED' : '<span style="color:#555">UNKNOWN</span>'}</td></tr>`;
-  html += `<tr><td>Required Reviews</td><td>${ac.requiredReviews ?? '<span style="color:#555">\u2014</span>'}</td></tr>`;
-  html += `<tr><td>Signed Commits</td><td>${ac.signedCommits === true ? '<span class="icon pass">[OK]</span>' : ac.signedCommits === false ? '<span class="icon fail">[XX]</span>' : '<span style="color:#555">\u2014</span>'}</td></tr>`;
-  html += `</table>`;
+  const tpBody = tp.length === 0
+    ? `<div class="v2-empty-note">No external services detected.</div>`
+    : tp.slice(0, 6).map(s => v2Kv(s.name, s.dpaUrl ? "DPA \u2713" : "no DPA", s.dpaUrl ? "pass" : "partial")).join("");
 
-  // Governance artifacts table shows TWO columns per policy: IN REPO
-  // (scanner's file-on-disk state) and SERVED (live-URL state from the last
-  // Check Production click). These are distinct compliance signals — a policy
-  // file can exist in the repo but not be served at its configured URL, and
-  // vice versa.
-  html += `<h3>GOVERNANCE ARTIFACTS</h3>`;
-  html += `<table><colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>`;
-  html += `<tr><th>ARTIFACT</th><th>IN REPO</th><th>SERVED</th></tr>`;
-  const labels: Record<string, string> = { privacyPolicy:"Privacy Policy", termsOfService:"Terms of Service", securityTxt:"security.txt", vulnerabilityDisclosure:"Vuln Disclosure", incidentResponsePlan:"Incident Response Plan" };
+  // Governance artifacts: IN REPO vs SERVED (v1 logic kept intact, rendered in v2 panel shell)
+  const artifactRows: string[] = [];
+  const labels: Record<string, string> = {
+    privacyPolicy: "Privacy Policy",
+    termsOfService: "Terms of Service",
+    securityTxt: "security.txt",
+    vulnerabilityDisclosure: "Vuln Disclosure",
+    incidentResponsePlan: "Incident Response Plan",
+  };
   for (const [key, label] of Object.entries(labels)) {
     const val = (manifest.artifacts as any)[key] as string;
     const servedState = (served.policyServed || {})[key as keyof PolicyServedMap];
-    html += `<tr><td>${label}</td><td>${statusIcon(val)} ${val.toUpperCase()}</td><td>${servedBadge(servedState)}</td></tr>`;
+    const servedText = servedState === "served" ? "served"
+      : servedState === "unreachable" ? "UNREACHABLE"
+      : servedState === "not-configured" ? "not configured"
+      : "\u2014";
+    const servedCls = servedState === "served" ? "pass"
+      : servedState === "unreachable" ? "fail"
+      : "na";
+    artifactRows.push(`
+      <div class="v2-kv-row"><span class="v2-kv-k">${esc(label)}</span><span class="v2-kv-v ${val === "missing" ? "fail" : val === "partial" ? "partial" : "pass"}">${esc(val).toUpperCase()}</span></div>
+      <div class="v2-kv-row"><span class="v2-kv-k" style="padding-left:12px;font-style:italic;">└ served</span><span class="v2-kv-v ${servedCls}">${servedText}</span></div>
+    `);
   }
-  html += `</table>`;
-
-  // AI-specific policies (Phase 8 Sub-phase D). Only render rows whose
-  // artifact field is defined and not "not-applicable", so repos without the
-  // triggering AI scope stay clean.
-  const aiLabels: Record<string, string> = {
-    aiUsagePolicy: "AI Usage Policy",
-    modelCards: "Model Cards",
-    fria: "FRIA",
-  };
-  const aiRows: string[] = [];
-  for (const [key, label] of Object.entries(aiLabels)) {
+  // AI artifacts — only render rows that aren't N/A
+  const aiArtifactLabels: Record<string, string> = { aiUsagePolicy: "AI Usage Policy", modelCards: "Model Cards", fria: "FRIA" };
+  for (const [key, label] of Object.entries(aiArtifactLabels)) {
     const val = (manifest.artifacts as any)[key] as string | undefined;
     if (val === undefined || val === "not-applicable") continue;
-    aiRows.push(`<tr><td>${label}</td><td>${statusIcon(val)} ${val.toUpperCase()}</td><td><span style="color:#444">\u2014</span></td></tr>`);
+    artifactRows.push(v2Kv(label, val.toUpperCase(), val === "present" ? "pass" : val === "missing" ? "fail" : "partial"));
   }
-  if (aiRows.length > 0) {
-    html += `<h3>AI ARTIFACTS</h3>`;
-    html += `<table><colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>`;
-    html += `<tr><th>ARTIFACT</th><th>IN REPO</th><th>SERVED</th></tr>`;
-    html += aiRows.join("");
-    html += `</table>`;
+  const artifactsBody = `<div class="v2-artifacts-grid">${artifactRows.join("")}</div>` +
+    (served.policyServedCheckedAt
+      ? `<div class="v2-empty-note" style="margin-top:10px;">Served state last checked ${timeAgo(served.policyServedCheckedAt)}. CHECK PRODUCTION refreshes it.</div>`
+      : `<div class="v2-empty-note" style="margin-top:10px;">Served state never checked. Click CHECK PRODUCTION above to populate — only URLs declared in <code style="color:#ffff00">policy_urls:</code> are verified.</div>`);
+
+  const panelsHtml = [
+    v2Panel(`DATA COLLECTION`, dataBody, { count: dc.length }),
+    v2Panel(`TRANSPORT`, transportBody),
+    v2Panel(`DEPENDENCIES`, depsBody),
+    v2Panel(`ACCESS CONTROLS`, accessBody),
+    v2Panel(aiCount > 0 ? `AI SYSTEMS` : `AI SYSTEMS · NONE`, aiBody, aiCount > 0 ? { count: aiCount } : {}),
+    v2Panel(`THIRD-PARTY`, tpBody, tp.length > 0 ? { count: tp.length } : {}),
+    v2Panel(`GOVERNANCE ARTIFACTS`, artifactsBody, { span3: true }),
+  ].join("\n");
+
+  // --- detail head (title + meta + action buttons + score trio + tabs) ---
+
+  // Keep v1 class names (export-combo, branch-combo, check-prod-btn) for
+  // backward compatibility with the existing JS functions — they still work
+  // the same way, just styled at new positions.
+  const exportDropdownHtml = `
+    <div class="export-combo" onclick="event.stopPropagation();">
+      <button class="export-btn" onclick="toggleExportMenu('${safeId}')">EXPORT \u25BE</button>
+      <ul id="export-menu-${safeId}" class="export-menu">
+        <li class="export-header">MACHINE-READABLE</li>
+        <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','manifest.json')">JSON (full state)</li>
+        <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','findings.sarif')">SARIF (code scanning)</li>
+        <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','assessment.oscal.json')">OSCAL (assessment)</li>
+        <li class="export-header">CSV</li>
+        <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','nist-csf.csv')">NIST CSF controls</li>
+        <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','eu-ai-act.csv')">EU AI Act articles</li>
+        <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','risks.csv')">Risk register</li>
+        <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','vulnerabilities.csv')">Vulnerabilities</li>
+      </ul>
+    </div>`;
+
+  const checkProdBtn = hasSiteUrl
+    ? `<button class="check-prod-btn" onclick="checkProduction('${owner}','${name}',this)">CHECK PRODUCTION</button><span class="check-prod-result"></span>`
+    : "";
+
+  const activeTab: RepoDetailTab = opts.tab ?? "overview";
+  const tabLabels: Array<[RepoDetailTab, string]> = [
+    ["overview", "OVERVIEW"],
+    ["nist", "NIST"],
+    ["ai", "AI"],
+    ["branches", "BRANCHES"],
+    ["trends", "TRENDS"],
+  ];
+  const repoHref = `/?repo=${encodeURIComponent(manifest.repo)}`;
+  const tabHref = (tab: RepoDetailTab, label: string) =>
+    `<a class="v2-tab${tab === activeTab ? " active" : ""}" href="${repoHref}&tab=${tab}">${label}</a>`;
+
+  // Body varies by tab. Non-overview tabs embed the existing specialized
+  // views — they were originally HTMX fragments but render fine as plain
+  // content inside the panel body.
+  let bodyHtml: string;
+  switch (activeTab) {
+    case "nist":
+      bodyHtml = opts.functionScores
+        ? renderNistView(summary, opts.functionScores)
+        : `<div class="v2-empty-note">NIST data unavailable.</div>`;
+      break;
+    case "ai":
+      bodyHtml = renderAIComplianceView(manifest);
+      break;
+    case "branches":
+      bodyHtml = opts.branchSummaries && opts.branchSummaries.length > 0
+        ? renderBranchComparison(opts.branchSummaries)
+        : `<div class="v2-empty-note">Only one branch scanned for this repo.</div>`;
+      break;
+    case "trends":
+      bodyHtml = renderTrendChart(opts.history ?? [], manifest.repo, manifest.branch);
+      break;
+    default:
+      bodyHtml = `<div class="v2-panel-grid">${panelsHtml}</div>`;
   }
 
-  // Freshness footer for the SERVED column.
-  if (served.policyServedCheckedAt) {
-    html += `<p class="note" style="margin-top:8px;font-size:11px;">Served status last checked ${timeAgo(served.policyServedCheckedAt)}. Click <strong>CHECK PRODUCTION</strong> above to refresh. IN REPO reflects the scanner's view of the file on disk at the last scan; SERVED reflects an HTTP GET against the URL declared in <code>.grc/config.yml</code> under <code>policy_urls:</code>.</p>`;
-  } else {
-    html += `<p class="note" style="margin-top:8px;font-size:11px;">SERVED status has never been checked for this repo. Click <strong>CHECK PRODUCTION</strong> above to populate it. Only policies with a URL declared under <code>policy_urls:</code> in <code>.grc/config.yml</code> will be checked; unlisted ones stay as NOT CONFIGURED.</p>`;
-  }
-
-  html += `</div>`;
-  return html;
+  return `
+    <div class="v2-detail-head">
+      <div class="v2-detail-head-row">
+        <span class="v2-detail-title">${esc(manifest.repo)}</span>
+        <span class="v2-detail-meta">${esc(manifest.branch)} · ${esc(manifest.commit)} · ${timeAgo(manifest.scanDate)}</span>
+        <div style="flex:1"></div>
+        ${exportDropdownHtml}
+        ${checkProdBtn}
+      </div>
+      <div class="v2-scores">
+        ${v2BigScore("COMPLIANCE", summary.complianceScore)}
+        ${v2BigScore("NIST CSF 2.0", summary.nistScore)}
+        ${aiCount > 0 ? v2BigScore("EU AI ACT", aiScore) : ""}
+      </div>
+    </div>
+    <nav class="v2-tabs">
+      ${tabLabels.map(([t, l]) => tabHref(t, l)).join("")}
+    </nav>
+    <div class="v2-panel-body">${bodyHtml}</div>`;
 }
 
 export function renderNistView(summary: RepoSummary, functionScores: FunctionScore[]): string {
