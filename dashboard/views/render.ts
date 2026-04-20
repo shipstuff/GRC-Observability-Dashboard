@@ -278,6 +278,37 @@ function layout(
     .v2-kv-row .v2-kv-v.na { color: #555; text-transform: none; }
     .v2-kv-row .v2-kv-v.default { color: #c8c8c8; }
 
+    /* Expandable KV row — click to reveal a preview line. Toggled by JS
+       flipping .open on the row, which swaps caret glyph + shows preview. */
+    .v2-xkv { border-bottom: 1px solid #141414; font-size: 12px; }
+    .v2-xkv-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 0; cursor: pointer; user-select: none;
+    }
+    .v2-xkv-head:hover { color: #c8c8c8; }
+    .v2-xkv-k { color: #888; display: flex; align-items: center; gap: 8px; }
+    .v2-xkv-caret {
+      color: #39ff14; display: inline-block; width: 8px;
+      font-family: var(--font-mono); font-size: 10px;
+    }
+    .v2-xkv-caret::before { content: "\u25B8"; }
+    .v2-xkv.open .v2-xkv-caret::before { content: "\u25BE"; }
+    .v2-xkv-v {
+      font-variant-numeric: tabular-nums; text-transform: uppercase;
+      color: #c8c8c8;
+    }
+    .v2-xkv-v.pass { color: #39ff14; }
+    .v2-xkv-v.partial { color: #ffff00; }
+    .v2-xkv-v.fail { color: #ff0040; }
+    .v2-xkv-v.na { color: #555; text-transform: none; }
+    .v2-xkv-preview {
+      display: none;
+      padding: 4px 0 10px 20px; font-size: 11px; color: #666;
+      line-height: 1.6; word-break: break-word;
+    }
+    .v2-xkv.open .v2-xkv-preview { display: block; }
+    .v2-xkv-empty { color: #444; font-style: italic; }
+
     .v2-artifacts-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 22px; }
 
     .v2-empty-note {
@@ -1019,6 +1050,14 @@ export function renderDashboard(
           });
         });
       })();
+      // Expandable KV rows: clicking the row toggles the .open class,
+      // which flips the ▸ to ▾ and reveals the preview line underneath.
+      document.addEventListener('click', function(e) {
+        var head = e.target.closest('.v2-xkv-head');
+        if (!head) return;
+        var row = head.parentElement;
+        if (row) row.classList.toggle('open');
+      });
     </script>`;
 
   // v2 is full-bleed — it has its own topbar, so we skip layout()'s v1
@@ -1046,6 +1085,25 @@ export interface ServedState {
 function v2Kv(k: string, v: string, status?: string): string {
   const cls = status ? ` ${status}` : " default";
   return `<div class="v2-kv-row"><span class="v2-kv-k">${esc(k)}</span><span class="v2-kv-v${cls}">${v}</span></div>`;
+}
+
+/**
+ * Expandable KV row — clicking toggles a preview line that shows the
+ * actual items behind the count (file paths, endpoint URLs, cookie
+ * names, etc.). Preview is already escaped; caller passes raw strings.
+ */
+function v2Xkv(k: string, v: string, previewItems: string[], status?: string): string {
+  const cls = status ? ` ${status}` : "";
+  const preview = previewItems.length === 0
+    ? `<span class="v2-xkv-empty">none</span>`
+    : esc(previewItems.join(", "));
+  return `<div class="v2-xkv">
+    <div class="v2-xkv-head">
+      <span class="v2-xkv-k"><span class="v2-xkv-caret"></span>${esc(k)}</span>
+      <span class="v2-xkv-v${cls}">${v}</span>
+    </div>
+    <div class="v2-xkv-preview">${preview}</div>
+  </div>`;
 }
 
 function v2Panel(title: string, body: string, opts: { count?: number; span3?: boolean } = {}): string {
@@ -1108,15 +1166,23 @@ export function renderRepoDetail(
 
   // --- panels ---
 
+  const forms = dc.filter(d => d.source === "form" || d.source === "web-form");
+  const apis = dc.filter(d => d.source.startsWith("POST") || d.source.startsWith("GET") || d.source === "api-input");
+  const cookies = dc.filter(d => d.type === "cookie");
+  const trackers = dc.filter(d => d.type === "tracking");
+  const uniq = (xs: string[]) => Array.from(new Set(xs.filter(Boolean)));
   const dataBody = dc.length === 0
     ? `<div class="v2-empty-note">No data collection detected.</div>`
     : [
-        v2Kv("Forms", String(dc.filter(d => d.source === "form" || d.source === "web-form").length)),
-        v2Kv("API endpoints", String(dc.filter(d => d.source.startsWith("POST") || d.source === "api-input").length)),
-        v2Kv("Cookies", String(dc.filter(d => d.type === "cookie").length)),
-        v2Kv("Trackers", String(dc.filter(d => d.type === "tracking").length)),
+        v2Xkv("Forms", String(forms.length), uniq(forms.map(d => d.location))),
+        v2Xkv("API endpoints", String(apis.length), uniq(apis.map(d => d.source.startsWith("POST") || d.source.startsWith("GET") ? d.source : d.location))),
+        v2Xkv("Cookies", String(cookies.length), uniq(cookies.flatMap(d => d.fields))),
+        v2Xkv("Trackers", String(trackers.length), uniq(trackers.map(d => d.processor || d.fields.join("/")))),
       ].join("");
 
+  const headerItems = h
+    ? Object.entries(h).map(([k, v]) => `${k} ${v === "present" ? "\u2713" : v === "partial" ? "~" : "\u2717"}`)
+    : [];
   const transportBody = !h && !manifest.https
     ? `<div class="v2-empty-note">No live site URL configured.</div>`
     : [
@@ -1127,7 +1193,8 @@ export function renderRepoDetail(
           ? v2Kv("Cert expiry", manifest.https.certExpiry)
           : "",
         h
-          ? v2Kv("Headers", `${summary.headersPresent}/${summary.headersTotal}`, summary.headersPresent === summary.headersTotal ? "pass" : summary.headersPresent >= 3 ? "partial" : "fail")
+          ? v2Xkv("Headers", `${summary.headersPresent}/${summary.headersTotal}`, headerItems,
+              summary.headersPresent === summary.headersTotal ? "pass" : summary.headersPresent >= 3 ? "partial" : "fail")
           : v2Kv("Headers", "not checked", "na"),
       ].join("");
 
@@ -1155,12 +1222,20 @@ export function renderRepoDetail(
     : ai.slice(0, 4).map(s => {
         const tier = s.riskTier ?? "unknown";
         const status = tier === "high" || tier === "prohibited" ? "fail" : tier === "limited" ? "partial" : "pass";
-        return v2Kv(`${s.provider} · ${s.sdk}`, tier.toUpperCase(), status);
+        const locations = (s as any).usageLocations ?? [];
+        const preview = locations.length > 0 ? locations : [s.location];
+        return v2Xkv(`${s.provider} · ${s.sdk}`, tier.toUpperCase(), preview, status);
       }).join("") + (aiCount > 4 ? `<div class="v2-empty-note">+${aiCount - 4} more — see AI tab</div>` : "");
 
   const tpBody = tp.length === 0
     ? `<div class="v2-empty-note">No external services detected.</div>`
-    : tp.slice(0, 6).map(s => v2Kv(s.name, s.dpaUrl ? "DPA \u2713" : "no DPA", s.dpaUrl ? "pass" : "partial")).join("");
+    : tp.slice(0, 6).map(s => {
+        const preview: string[] = [];
+        if (s.purpose) preview.push(`purpose: ${s.purpose}`);
+        if (s.dataShared?.length > 0) preview.push(`shares: ${s.dataShared.join(", ")}`);
+        if (s.dpaUrl) preview.push(`DPA: ${s.dpaUrl}`);
+        return v2Xkv(s.name, s.dpaUrl ? "DPA \u2713" : "NO DPA", preview, s.dpaUrl ? "pass" : "partial");
+      }).join("");
 
   // Governance artifacts: IN REPO vs SERVED (v1 logic kept intact, rendered in v2 panel shell)
   const artifactRows: string[] = [];
