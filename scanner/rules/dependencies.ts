@@ -1,10 +1,93 @@
 import { join } from "node:path";
-import { ScanContext, ThirdPartyService, DependencyInfo } from "../types.js";
+import { ScanContext, ThirdPartyService, DependencyInfo, DependencyVulnerability } from "../types.js";
 import { readFileContent, fileExists } from "../utils.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 const exec = promisify(execFile);
+
+/**
+ * Shape of one `via` entry in npm audit's vulnerabilities object when the
+ * entry is an actual advisory (as opposed to a string referencing another
+ * package in the dep tree). npm may add fields over time; we pluck only
+ * what the exporters need.
+ */
+interface NpmAuditVia {
+  source?: number;
+  name?: string;
+  title?: string;
+  url?: string;
+  severity?: string;
+  cvss?: { score?: number };
+  range?: string;
+}
+
+interface NpmAuditVulnEntry {
+  name?: string;
+  severity?: string;
+  isDirect?: boolean;
+  via?: Array<NpmAuditVia | string>;
+  range?: string;
+  nodes?: string[];
+  fixAvailable?: boolean | { name?: string; version?: string };
+}
+
+/**
+ * Flatten npm audit's nested structure into one DependencyVulnerability per
+ * (package, advisory) pair. `via` entries that are strings are inter-package
+ * references — we skip those; they show up attached to whichever leaf
+ * advisory eventually surfaces.
+ */
+function parseNpmAudit(audit: {
+  vulnerabilities?: Record<string, NpmAuditVulnEntry>;
+}): DependencyVulnerability[] {
+  const vulnerabilities = audit.vulnerabilities;
+  if (!vulnerabilities || typeof vulnerabilities !== "object") return [];
+
+  const out: DependencyVulnerability[] = [];
+  const seenAdvisoryIds = new Set<string>();
+
+  for (const [pkgName, entry] of Object.entries(vulnerabilities)) {
+    const severity = (entry.severity ?? "low") as DependencyVulnerability["severity"];
+    if (!["critical", "high", "moderate", "low"].includes(severity)) continue;
+
+    const viaAdvisories = (entry.via ?? []).filter(
+      (v): v is NpmAuditVia => typeof v === "object" && v !== null,
+    );
+    if (viaAdvisories.length === 0) continue;
+
+    for (const via of viaAdvisories) {
+      const advisoryId = via.source != null
+        ? String(via.source)
+        : `${pkgName}:${via.title ?? "unknown"}`;
+      if (seenAdvisoryIds.has(advisoryId)) continue;
+      seenAdvisoryIds.add(advisoryId);
+
+      out.push({
+        package: pkgName,
+        advisoryId,
+        severity: (via.severity as DependencyVulnerability["severity"]) ?? severity,
+        title: via.title ?? "Unspecified advisory",
+        range: via.range ?? entry.range ?? "*",
+        url: via.url ?? `https://www.npmjs.com/advisories?search=${encodeURIComponent(pkgName)}`,
+        cvssScore: via.cvss?.score ?? 0,
+        isDirect: entry.isDirect === true,
+        fixAvailable: entry.fixAvailable != null && entry.fixAvailable !== false,
+        paths: (entry.nodes ?? []).slice(0, 5), // cap to keep the manifest compact
+      });
+    }
+  }
+
+  // Stable ordering — critical first, then by package name. Exports that
+  // iterate in order (CSV rows, SARIF results) benefit from reproducibility.
+  const severityRank: Record<string, number> = { critical: 0, high: 1, moderate: 2, low: 3 };
+  out.sort((a, b) => {
+    const s = (severityRank[a.severity] ?? 9) - (severityRank[b.severity] ?? 9);
+    if (s !== 0) return s;
+    return a.package.localeCompare(b.package);
+  });
+  return out;
+}
 
 // Known third-party services and their data implications
 const KNOWN_SERVICES: Record<string, { name: string; purpose: string; dataShared: string[]; dpaUrl: string | null }> = {
@@ -46,9 +129,14 @@ const KNOWN_SERVICES: Record<string, { name: string; purpose: string; dataShared
   "intercom-client": { name: "Intercom", purpose: "customer support", dataShared: ["email", "name", "chat_messages"], dpaUrl: "https://www.intercom.com/legal/data-processing-agreement" },
 };
 
-export async function scanDependencies(ctx: ScanContext): Promise<{ services: ThirdPartyService[]; deps: DependencyInfo | null }> {
+export async function scanDependencies(ctx: ScanContext): Promise<{
+  services: ThirdPartyService[];
+  deps: DependencyInfo | null;
+  vulnerabilities: DependencyVulnerability[];
+}> {
   const services: ThirdPartyService[] = [];
   let deps: DependencyInfo | null = null;
+  let vulnerabilities: DependencyVulnerability[] = [];
 
   // Check package.json (Node.js)
   const pkgPath = join(ctx.repoPath, "package.json");
@@ -75,35 +163,38 @@ export async function scanDependencies(ctx: ScanContext): Promise<{ services: Th
     // Run npm audit if package-lock.json exists
     const lockPath = join(ctx.repoPath, "package-lock.json");
     if (await fileExists(lockPath)) {
+      // Prefer parsing whatever npm audit returns even on non-zero exit —
+      // the command returns non-zero whenever advisories exist, which is
+      // the common case we want to capture.
+      let auditJson: unknown = null;
       try {
         const { stdout } = await exec("npm", ["audit", "--json"], {
           cwd: ctx.repoPath,
           timeout: 30000,
         });
-        const audit = JSON.parse(stdout);
-        const vuln = audit.metadata?.vulnerabilities || {};
-        deps = {
-          criticalVulnerabilities: vuln.critical || 0,
-          highVulnerabilities: vuln.high || 0,
-          mediumVulnerabilities: vuln.moderate || 0,
-          outdatedPackages: 0,
-          lastAudit: new Date().toISOString().split("T")[0],
-        };
+        auditJson = JSON.parse(stdout);
       } catch (e: any) {
-        // npm audit exits non-zero when vulnerabilities are found
         try {
-          const audit = JSON.parse(e.stdout || "{}");
-          const vuln = audit.metadata?.vulnerabilities || {};
-          deps = {
-            criticalVulnerabilities: vuln.critical || 0,
-            highVulnerabilities: vuln.high || 0,
-            mediumVulnerabilities: vuln.moderate || 0,
-            outdatedPackages: 0,
-            lastAudit: new Date().toISOString().split("T")[0],
-          };
+          auditJson = JSON.parse(e.stdout || "{}");
         } catch {
-          // Can't parse audit output, skip
+          auditJson = null;
         }
+      }
+
+      if (auditJson && typeof auditJson === "object") {
+        const audit = auditJson as {
+          metadata?: { vulnerabilities?: { critical?: number; high?: number; moderate?: number } };
+          vulnerabilities?: Record<string, NpmAuditVulnEntry>;
+        };
+        const vuln = audit.metadata?.vulnerabilities ?? {};
+        deps = {
+          criticalVulnerabilities: vuln.critical ?? 0,
+          highVulnerabilities: vuln.high ?? 0,
+          mediumVulnerabilities: vuln.moderate ?? 0,
+          outdatedPackages: 0,
+          lastAudit: new Date().toISOString().split("T")[0]!,
+        };
+        vulnerabilities = parseNpmAudit(audit);
       }
     }
   }
@@ -120,5 +211,5 @@ export async function scanDependencies(ctx: ScanContext): Promise<{ services: Th
     // Future: add Go module scanning
   }
 
-  return { services, deps };
+  return { services, deps, vulnerabilities };
 }

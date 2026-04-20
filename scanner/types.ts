@@ -36,6 +36,34 @@ export interface DependencyInfo {
   lastAudit: string;
 }
 
+/**
+ * One advisory affecting a dependency. Sourced from `npm audit --json` in the
+ * scanner, flattened one record per (package, advisory) pair so SARIF and
+ * CSV exports can emit them individually. Older manifests predate this field
+ * — consumers must treat the whole array as optional.
+ */
+export interface DependencyVulnerability {
+  /** Package name the advisory is published against. */
+  package: string;
+  /** GitHub Advisory DB numeric id where available — otherwise a stable hash. */
+  advisoryId: string;
+  severity: "critical" | "high" | "moderate" | "low";
+  /** Plain-English title from the advisory source. */
+  title: string;
+  /** Affected semver range. */
+  range: string;
+  /** Link to the GitHub advisory page (or npm advisory URL). */
+  url: string;
+  /** CVSS v3 base score when published. 0 when unknown. */
+  cvssScore: number;
+  /** True if the affected package is a direct dep of this repo. */
+  isDirect: boolean;
+  /** True when npm believes a non-breaking upgrade would fix this. */
+  fixAvailable: boolean;
+  /** Dependency paths (node_modules/... strings) — for SARIF location. */
+  paths: string[];
+}
+
 export interface SecretsFindings {
   detected: boolean;
   findings: string[];
@@ -138,6 +166,13 @@ export interface Manifest {
   artifacts: ArtifactStatus;
   accessControls: AccessControls;
   aiSystems: AISystem[];
+  /**
+   * Per-advisory detail for dependency vulnerabilities. Optional for
+   * backward compatibility with older stored manifests that only carried
+   * the aggregate counts in `dependencies`. SARIF, CSV, and OSCAL
+   * exports rely on this field to produce per-finding output.
+   */
+  vulnerabilities?: DependencyVulnerability[];
   policyUrls?: PolicyUrlsManifest;
 }
 

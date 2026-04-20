@@ -201,6 +201,38 @@ function layout(title: string, content: string, orgName: string = "", activeNav:
     .check-prod-btn:disabled { opacity: 0.5; cursor: wait; }
     .check-prod-result { font-size: 11px; margin-left: 8px; color: #aaa; }
 
+    /* Export dropdown on each repo card. Filename + format picker lives
+       here; the actual download is a GET to /export/:owner/:name/:format
+       with the currently selected branch from the combobox. */
+    .export-combo { position: relative; display: inline-block; }
+    .export-btn {
+      font-family: var(--font-pixel); font-size: 8px; letter-spacing: 1px;
+      background: #050505; border: 1px solid #00ffff; color: #00ffff;
+      padding: 7px 12px; cursor: pointer; transition: all 0.15s;
+    }
+    .export-btn:hover { background: #00ffff; color: #0a0a0a; }
+    .export-menu {
+      position: absolute; right: 0; top: 100%; margin-top: 2px;
+      list-style: none; background: #050505; border: 1px solid #00ffff;
+      min-width: 240px; z-index: 50;
+      box-shadow: 0 0 12px rgba(0,255,255,0.25); display: none;
+    }
+    .export-combo.open .export-menu { display: block; }
+    .export-menu li {
+      font-family: var(--font-mono); font-size: 12px; color: #aaa;
+      padding: 7px 12px; cursor: pointer; white-space: nowrap;
+    }
+    .export-menu li:hover:not(.export-header) { background: #0a0a0a; color: #00ffff; }
+    .export-menu li.export-header {
+      font-family: var(--font-pixel); font-size: 7px; color: #666;
+      letter-spacing: 2px; padding: 6px 12px 4px; cursor: default;
+      border-top: 1px solid #1a1a1a;
+    }
+    .export-menu li.export-header:first-child { border-top: none; }
+    /* Org export sits above the repo list, right-aligned. */
+    .org-export-combo { float: right; margin-top: -58px; margin-bottom: 10px; }
+    .org-export-combo .export-menu { right: 0; }
+
     /* Tabs */
     .tab-bar { display: flex; gap: 0; margin-bottom: 0; border-bottom: 2px solid #333; flex-wrap: wrap; }
     .tab {
@@ -580,6 +612,53 @@ function layout(title: string, content: string, orgName: string = "", activeNav:
           btn.disabled = false;
         });
     }
+
+    function toggleExportMenu(repoId) {
+      // Close every other open export menu first so we don't stack them.
+      document.querySelectorAll('.export-combo.open').forEach(function(el) {
+        if (el.querySelector('#export-menu-' + repoId) === null) {
+          el.classList.remove('open');
+        }
+      });
+      var menu = document.getElementById('export-menu-' + repoId);
+      if (!menu) return;
+      menu.parentElement.classList.toggle('open');
+    }
+
+    function downloadExport(evt, owner, name, repoId, format) {
+      evt.stopPropagation();
+      // Honor the branch selected in the combobox for this repo card. Falls
+      // back to no ?branch= so the server picks main/master.
+      var combo = document.getElementById('branch-' + repoId);
+      var branch = combo ? combo.getAttribute('data-value') : '';
+      var url = '/export/' + owner + '/' + name + '/' + format;
+      if (branch) url += '?branch=' + encodeURIComponent(branch);
+      // Close the menu immediately so the dropdown doesn't linger while the
+      // download starts.
+      var parent = document.getElementById('export-menu-' + repoId);
+      if (parent) parent.parentElement.classList.remove('open');
+      window.location.href = url;
+    }
+
+    // Close export menus when clicking anywhere else on the page.
+    document.addEventListener('click', function(evt) {
+      if (!evt.target.closest('.export-combo')) {
+        document.querySelectorAll('.export-combo.open').forEach(function(el) {
+          el.classList.remove('open');
+        });
+      }
+    });
+
+    function toggleOrgExportMenu() {
+      var el = document.querySelector('.org-export-combo');
+      if (el) el.classList.toggle('open');
+    }
+    function downloadOrgExport(evt, format) {
+      evt.stopPropagation();
+      var el = document.querySelector('.org-export-combo');
+      if (el) el.classList.remove('open');
+      window.location.href = '/export/all/' + format;
+    }
   </script>
 </body>
 </html>`;
@@ -622,7 +701,24 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
       <div class="stat-card"><div class="label">Leaks</div><div class="value" style="color:${secretsCount > 0 ? "#ff0040" : "#39ff14"}">${secretsCount}</div></div>
     </div>`;
 
-  const searchHtml = `<div class="search-bar"><input type="text" id="repo-search" placeholder="> SEARCH REPOS..." oninput="filterRepos()"></div>`;
+  // Org-level audit-bundle export — main/master only across all repos.
+  // Deliberately separate from the per-repo dropdown (which respects the
+  // branch dropdown) because auditors want production state, not WIP.
+  const orgExportHtml = `
+    <div class="export-combo org-export-combo" onclick="event.stopPropagation();">
+      <button class="export-btn" onclick="toggleOrgExportMenu()">ORG EXPORT (MAIN) \u25BE</button>
+      <ul id="export-menu-org" class="export-menu">
+        <li class="export-header">MACHINE-READABLE</li>
+        <li onclick="downloadOrgExport(event,'manifest.json')">JSON (all repos)</li>
+        <li class="export-header">CSV</li>
+        <li onclick="downloadOrgExport(event,'nist-csf.csv')">NIST CSF (all repos)</li>
+        <li onclick="downloadOrgExport(event,'eu-ai-act.csv')">EU AI Act (all repos)</li>
+        <li onclick="downloadOrgExport(event,'risks.csv')">Risk register (all repos)</li>
+        <li onclick="downloadOrgExport(event,'vulnerabilities.csv')">Vulnerabilities (all repos)</li>
+      </ul>
+    </div>`;
+
+  const searchHtml = `<div class="search-bar"><input type="text" id="repo-search" placeholder="> SEARCH REPOS..." oninput="filterRepos()"></div>${orgExportHtml}`;
 
   const reposHtml = summaries.map(r => {
     const [owner, name] = r.repo.split("/");
@@ -687,6 +783,20 @@ export function renderDashboard(summaries: RepoSummary[], branchesPerRepo: Map<s
             </ul>
           </div>
           ${hasSiteUrl ? `<button class="check-prod-btn" onclick="event.stopPropagation();checkProduction('${owner}','${name}',this)">CHECK PRODUCTION</button><span class="check-prod-result"></span>` : ""}
+          <div class="export-combo" onclick="event.stopPropagation();">
+            <button class="export-btn" onclick="toggleExportMenu('${safeId}')">EXPORT \u25BE</button>
+            <ul id="export-menu-${safeId}" class="export-menu">
+              <li class="export-header">MACHINE-READABLE</li>
+              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','manifest.json')">JSON (full state)</li>
+              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','findings.sarif')">SARIF (code scanning)</li>
+              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','assessment.oscal.json')">OSCAL (assessment results)</li>
+              <li class="export-header">CSV</li>
+              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','nist-csf.csv')">NIST CSF controls</li>
+              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','eu-ai-act.csv')">EU AI Act articles</li>
+              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','risks.csv')">Risk register</li>
+              <li onclick="downloadExport(event,'${owner}','${name}','${safeId}','vulnerabilities.csv')">Vulnerabilities</li>
+            </ul>
+          </div>
         </div>
         <div class="tab-bar">
           <div class="tab active" data-url="/repo/${owner}/${name}" onclick="switchTab('${safeId}','${owner}','${name}','repo',this)">OVERVIEW</div>

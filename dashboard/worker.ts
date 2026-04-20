@@ -3,6 +3,11 @@ import { parse } from "yaml";
 import type { Manifest, } from "../scanner/types.js";
 import { evaluateFramework } from "../scanner/generators/framework-report.js";
 import { evaluateEUAIAct, calcAIComplianceScore } from "../scanner/frameworks/eu-ai-act.js";
+import { assessRisks } from "../scanner/generators/risk-assessment.js";
+import { generateJsonExport } from "../scanner/generators/exports/json.js";
+import { generateCsvNistCsf, generateCsvEuAiAct, generateCsvRisks, generateCsvVulnerabilities } from "../scanner/generators/exports/csv.js";
+import { generateSarifExport } from "../scanner/generators/exports/sarif.js";
+import { generateOscalExport } from "../scanner/generators/exports/oscal.js";
 import { renderDashboard, renderRepoDetail, renderNistView, renderBranchComparison, renderTrendChart, renderAIComplianceView, renderInventoryView } from "./views/render.js";
 import { verifyGitHubOidc, assertRepositoryMatches, AuthError, DEFAULT_AUDIENCE } from "./auth.js";
 
@@ -697,5 +702,169 @@ app.get("/api/inventory.csv", async (c) => {
     },
   });
 });
+
+// ─── Phase 9 Sub-phase A: machine-readable exports ─────────────────────────
+
+/**
+ * Compute the framework + risk artifacts for one manifest. The scanner itself
+ * passes authFindings (source-level auth middleware misses) into assessRisks,
+ * but those aren't stored in the manifest so we call assessRisks with []
+ * here. The risk set is nearly identical — only file-specific auth misses
+ * drop out.
+ */
+function exportPayload(manifest: Manifest, siteUrl: string | undefined) {
+  const nist = evaluateFramework(manifest);
+  const eu = evaluateEUAIAct(manifest);
+  const config = {
+    siteName: manifest.repo,
+    siteUrl: siteUrl ?? "",
+    ownerName: manifest.repo.split("/")[0] ?? "Unknown",
+    contactEmail: "",
+    securityContact: "",
+    logRetentionDays: 90,
+    jurisdiction: ["gdpr"],
+    preferredLanguages: ["en"],
+    outputDir: "docs/policies",
+    policyUrls: {},
+    ai: { enabled: false, provider: "anthropic" as const },
+    aiSystemOverrides: [],
+  };
+  const risks = assessRisks(manifest, config, []);
+  return { nist, eu, risks };
+}
+
+function stemFor(manifest: Manifest): string {
+  const safeBranch = manifest.branch.replace(/[^\w.-]/g, "-");
+  return `${manifest.repo.replace(/\//g, "-")}-${safeBranch}-${manifest.commit.slice(0, 7)}`;
+}
+
+function download(body: string, filename: string, contentType: string): Response {
+  return new Response(body, {
+    headers: {
+      "content-type": contentType,
+      "content-disposition": `attachment; filename="${filename}"`,
+    },
+  });
+}
+
+// Per-repo exports — honor the ?branch=<name> query param so consumers can
+// download the state of any scanned branch, not just main. Falls back to the
+// repo's default (main/master/first-scanned) via findByBranch.
+app.get("/export/:owner/:name/:format{.+}", async (c) => {
+  const repoName = `${c.req.param("owner")}/${c.req.param("name")}`;
+  const format = c.req.param("format");
+  const branch = c.req.query("branch") || undefined;
+  const all = await getManifests(c.env.GRC_KV);
+  const entry = findByBranch(all.filter(m => m.manifest.repo === repoName), branch);
+  if (!entry) return c.json({ error: "Repo not found" }, 404);
+
+  const { manifest, siteUrl } = entry;
+  const { nist, eu, risks } = exportPayload(manifest, siteUrl);
+  const stem = stemFor(manifest);
+
+  switch (format) {
+    case "manifest.json":
+      return download(generateJsonExport(manifest, nist, eu, risks), `${stem}.json`, "application/json; charset=utf-8");
+    case "findings.sarif":
+      return download(generateSarifExport(manifest), `${stem}.sarif`, "application/sarif+json; charset=utf-8");
+    case "assessment.oscal.json":
+      return download(generateOscalExport(manifest, nist, eu), `${stem}.oscal.json`, "application/json; charset=utf-8");
+    case "nist-csf.csv":
+      return download(generateCsvNistCsf(manifest, nist), `${stem}-nist-csf.csv`, "text/csv; charset=utf-8");
+    case "eu-ai-act.csv":
+      return download(generateCsvEuAiAct(manifest, eu), `${stem}-eu-ai-act.csv`, "text/csv; charset=utf-8");
+    case "risks.csv":
+      return download(generateCsvRisks(manifest, risks), `${stem}-risks.csv`, "text/csv; charset=utf-8");
+    case "vulnerabilities.csv":
+      return download(generateCsvVulnerabilities(manifest), `${stem}-vulnerabilities.csv`, "text/csv; charset=utf-8");
+    default:
+      return c.json({ error: `Unknown export format: ${format}. Try manifest.json, findings.sarif, assessment.oscal.json, nist-csf.csv, eu-ai-act.csv, risks.csv, vulnerabilities.csv.` }, 400);
+  }
+});
+
+/**
+ * Pick the main/master entry for each repo — the org-level export is an
+ * "audit bundle" so we deliberately leave feature branches out.
+ */
+function mainEntryPerRepo(all: StoredManifest[]): StoredManifest[] {
+  const byRepo = new Map<string, StoredManifest>();
+  for (const entry of all) {
+    const repo = entry.manifest.repo;
+    const isMain = entry.manifest.branch === "main" || entry.manifest.branch === "master";
+    const existing = byRepo.get(repo);
+    if (!existing) {
+      // Accept whatever we see first; will be replaced if a main turns up.
+      byRepo.set(repo, entry);
+      continue;
+    }
+    const existingIsMain = existing.manifest.branch === "main" || existing.manifest.branch === "master";
+    if (isMain && !existingIsMain) byRepo.set(repo, entry);
+  }
+  return [...byRepo.values()];
+}
+
+// Org-level aggregate — main/master only across all repos. JSON + 4 CSVs.
+// SARIF + OSCAL aggregation is skipped for now; they require careful merge
+// semantics (dedup of common rules, UUID stability) and nobody's asked.
+app.get("/export/all/:format{.+}", async (c) => {
+  const all = await getManifests(c.env.GRC_KV);
+  const entries = mainEntryPerRepo(all);
+  const format = c.req.param("format");
+  const dateStem = new Date().toISOString().slice(0, 10);
+
+  switch (format) {
+    case "manifest.json": {
+      const payload = entries.map(e => {
+        const { nist, eu, risks } = exportPayload(e.manifest, e.siteUrl);
+        return JSON.parse(generateJsonExport(e.manifest, nist, eu, risks));
+      });
+      return download(JSON.stringify(payload, null, 2) + "\n", `grc-org-${dateStem}.json`, "application/json; charset=utf-8");
+    }
+    case "nist-csf.csv": {
+      const csvs = entries.map(e => {
+        const { nist } = exportPayload(e.manifest, e.siteUrl);
+        return generateCsvNistCsf(e.manifest, nist);
+      });
+      return download(concatCsv(csvs), `grc-org-${dateStem}-nist-csf.csv`, "text/csv; charset=utf-8");
+    }
+    case "eu-ai-act.csv": {
+      const csvs = entries.map(e => {
+        const { eu } = exportPayload(e.manifest, e.siteUrl);
+        return generateCsvEuAiAct(e.manifest, eu);
+      });
+      return download(concatCsv(csvs), `grc-org-${dateStem}-eu-ai-act.csv`, "text/csv; charset=utf-8");
+    }
+    case "risks.csv": {
+      const csvs = entries.map(e => {
+        const { risks } = exportPayload(e.manifest, e.siteUrl);
+        return generateCsvRisks(e.manifest, risks);
+      });
+      return download(concatCsv(csvs), `grc-org-${dateStem}-risks.csv`, "text/csv; charset=utf-8");
+    }
+    case "vulnerabilities.csv": {
+      const csvs = entries.map(e => generateCsvVulnerabilities(e.manifest));
+      return download(concatCsv(csvs), `grc-org-${dateStem}-vulnerabilities.csv`, "text/csv; charset=utf-8");
+    }
+    default:
+      return c.json({ error: `Unknown org export format: ${format}. Try manifest.json, nist-csf.csv, eu-ai-act.csv, risks.csv, vulnerabilities.csv.` }, 400);
+  }
+});
+
+/** Concatenate multiple per-repo CSVs into one table keeping a single header. */
+function concatCsv(csvs: string[]): string {
+  if (csvs.length === 0) return "";
+  const firstLines = csvs[0]!.split("\n");
+  const header = firstLines[0]!;
+  const rows: string[] = [header];
+  for (const csv of csvs) {
+    const lines = csv.split("\n");
+    // Skip the header on each subsequent file, drop trailing empty line.
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (line.length > 0) rows.push(line);
+    }
+  }
+  return rows.join("\n") + "\n";
+}
 
 export default app;
